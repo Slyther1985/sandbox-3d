@@ -3,14 +3,14 @@
  * Módulo hoja del DAG (sin dependencias).
  */
 
-export const DIMENSION_LOBBY = 80;
-export const MITAD_LOBBY = 40;
+export const DIMENSION_LOBBY = 130;
+export const MITAD_LOBBY = 65;
 export const DIMENSION_PARCELA = 32;
 export const MITAD_PARCELA = 16;
 export const DIMENSION_PISTA_KARTS = 160;
 export const MITAD_PISTA_KARTS = 80;
 export const VUELTAS_CARRERA_KARTS = 2;
-export const LIMITE_MUNDO = 38.5;
+export const LIMITE_MUNDO = 63.5;
 export const ALTURA_CAIDA_VACIO = -15;
 
 export const GRAVEDAD_BASE = -22;

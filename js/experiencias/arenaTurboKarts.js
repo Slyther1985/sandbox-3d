@@ -12,6 +12,7 @@ import {
     MITAD_PISTA_KARTS,
     VUELTAS_CARRERA_KARTS
 } from '../constantes.js';
+import { CONFIG_CAMARA } from '../config.js';
 import {
     estadoControles,
     estadoJugador,
@@ -1916,13 +1917,6 @@ export class ArenaTurboKarts extends ExperienciaBase {
             avatar.userData.turboActivoKart = ec.tiempoTurbo > 0 || ec.derrapando;
         }
 
-        // FOV dinámico durante Boost Pads / Mini-Turbo
-        if (contextoSandbox?.camara && !estadoControles.modoPreviewAvatar) {
-            const fovObjetivo = ec.tiempoTurbo > 0 ? 74 : 60 + (ec.velocidadKmH / 125) * 6;
-            contextoSandbox.camara.fov += (fovObjetivo - contextoSandbox.camara.fov) * Math.min(1, dtSeg * 8);
-            contextoSandbox.camara.updateProjectionMatrix();
-        }
-
         // 5. Turbo Pads direccionales (6)
         for (const pad of this.boostPads) {
             if (pad.cooldown > 0) pad.cooldown = Math.max(0, pad.cooldown - dtSeg);
@@ -2088,6 +2082,84 @@ export class ArenaTurboKarts extends ExperienciaBase {
                 }
             }
         }
+    }
+
+    /**
+     * Regla de cámara de `ArenaTurboKarts`: persecución detrás del kart,
+     * vista frontal tres-cuartos en el garaje (`garajeKartAbierto`) y encuadre del podio (`modoCeremoniaPodio`).
+     * @param {object} [contextoCamara]
+     * @returns {object}
+     */
+    obtenerConfigCamara(contextoCamara = {}) {
+        if (estadoControles.modoCeremoniaPodio && estadoControles.camaraPodio) {
+            const cp = estadoControles.camaraPodio;
+            return {
+                modo: 'ceremonia_podio',
+                posicionObjetivo: { x: cp.posX, y: cp.posY, z: cp.posZ },
+                puntoMira: { x: cp.lookX, y: cp.lookY, z: cp.lookZ },
+                suavizado: 6,
+                fov: 56
+            };
+        }
+
+        if (estadoJugador.enVehiculo && estadoControles.garajeKartAbierto) {
+            const ancho = contextoCamara.anchoPantalla || (typeof window !== 'undefined' ? window.innerWidth : 1024);
+            const rot = estadoJugador.rotacion;
+            const angShowcase = rot + 0.62;
+            const distShowcase = 4.6;
+            const px = estadoJugador.posicion.x;
+            const py = estadoJugador.posicion.y;
+            const pz = estadoJugador.posicion.z;
+            const rightX = Math.cos(angShowcase);
+            const rightZ = -Math.sin(angShowcase);
+            const desplazamientoIzq = ancho > 760 ? -0.75 : 0;
+
+            return {
+                modo: 'garaje_kart',
+                posicionObjetivo: {
+                    x: px + Math.sin(angShowcase) * distShowcase + rightX * desplazamientoIzq,
+                    y: py + 2.0,
+                    z: pz + Math.cos(angShowcase) * distShowcase + rightZ * desplazamientoIzq
+                },
+                puntoMira: {
+                    x: px + rightX * desplazamientoIzq,
+                    y: py + 0.85,
+                    z: pz + rightZ * desplazamientoIzq
+                },
+                suavizado: 9,
+                fov: 58
+            };
+        }
+
+        if (estadoJugador.enVehiculo) {
+            const ec = this.estadoCarrera;
+            const distKart = 6.6;
+            const rot = estadoJugador.rotacion;
+            const targetX = estadoJugador.posicion.x;
+            const targetY = estadoJugador.posicion.y + 1.5;
+            const targetZ = estadoJugador.posicion.z;
+            const fovObjetivo = ec.tiempoTurbo > 0
+                ? 74
+                : CONFIG_CAMARA.fov + ((ec.velocidadKmH || 0) / 125) * 6;
+
+            return {
+                modo: 'persecucion_kart',
+                posicionObjetivo: {
+                    x: targetX - Math.sin(rot) * distKart,
+                    y: targetY + 2.2,
+                    z: targetZ - Math.cos(rot) * distKart
+                },
+                puntoMira: {
+                    x: targetX + Math.sin(rot) * 3.5,
+                    y: targetY,
+                    z: targetZ + Math.cos(rot) * 3.5
+                },
+                suavizado: 16,
+                fov: fovObjetivo
+            };
+        }
+
+        return super.obtenerConfigCamara(contextoCamara);
     }
 
     /**

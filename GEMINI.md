@@ -4,16 +4,16 @@ Plataforma Sandbox 3D multijugador en navegador (estilo Roblox) construida con T
 
 ## 1. Reglas Arquitectónicas No Negociables
 
-1. **Grafo Acíclico Dirigido (DAG ES6)**: Prohibidas las dependencias circulares entre módulos `js/**/*.js`. Jerarquía estricta:
-   - Nivel 0 (hojas): `constantes.js`, `config.js`
-   - Nivel 1: `estado.js`, `recursos.js`
+1. **Grafo Acíclico Dirigido (DAG ES6)**: Prohibidas las dependencias circulares entre módulos `js/**/*.js` (16 módulos). Jerarquía estricta:
+   - Nivel 0 (hojas): `constantes.js`, `config.js`, `partituras.js`
+   - Nivel 1: `estado.js`, `recursos.js`, `audio.js`
    - Nivel 2: `avatar.js`, `nucleoSandbox.js`, `fisicaSandbox.js`, `red.js`
    - Nivel 3 (experiencias): `js/experiencias/*.js` (`lobbyCentral.js`, `zonaConstruccion.js`, `arenaTurboKarts.js`, `salaTetris.js`)
    - Nivel 4: `interfaz.js`, `main.js`
 2. **Limpieza Obligatoria de GPU (`liberarObjeto3D`)**: Todo módulo que desmonte una escena, avatar, cúpula de cielo (`crearCupulaCielo(tema)`) o entidad dinámica debe llamar a `liberarObjeto3D(objeto)` desde `js/recursos.js`. Toda textura dinámica por instancia debe marcarse con `userData.esClonTemporal = true`.
-3. **Resiliencia Offline/Online y Persistencia de Sala**: El cliente es jugable sin servidor (`modo: 'offline'`) con respaldo local (`construccionGuardada`). Al conectarse a `SALA-XXXX`, `server/index.js` persiste parcelas en `server/data/parcelas.json`, envía `estado_parcela_completo` y asigna `slotParrilla` (`0..7`) único vía `sala_actualizada`.
-4. **Rendimiento, Iluminación PBR y Red**: Renderizado PBR a 60 FPS (`ACESFilmicToneMapping`, `dt` acotado a `0.05s`), avatares LEGO Minifigure (`MeshPhysicalMaterial`), karts superhéroe/competición (`kart_batmovil`, `kart_formula`, `kart_lemans`, `kart_tumbler` a 120 pts + `pesoImpacto`) con texturas PBR de chasis/neumáticos, colisiones kart-a-kart y sincronización a 20 Hz (`TASA_ENVIO_HZ = 20`) más `accion_social`.
-5. **UI Responsiva y Vistas en Vivo 3D**: HUD minimalista superior, Menú Radial Dona (`#btn-menu-dona` / `Tab`), popover colapsable de bloques (`#btn-toggle-bloques` / `KeyB`), garaje lateral translúcido Kart (`#popover-kart` / `KeyG`, GP 160x160 m, Paddock, parrilla `P1–P8` 10s, podio 12s), salón Tetris 3D (`salaTetris.js`, 8 estaciones individuales con TV Gigante 3D 10x20 y HUD transparente), controles táctiles (`#controles-moviles`) y vistas de cámara (`modoPreviewAvatar`, `garajeKartAbierto`, `modoCeremoniaPodio`, `modoTetrisActivo`).
+3. **Resiliencia Offline/Online y Persistencia de Sala**: El cliente es jugable sin servidor (`modo: 'offline'`) con respaldo local (`construccionGuardada`). Al confirmar perfil único (sin PIN) en `#pantalla-bienvenida`, se conecta por defecto a `'SALA-PUBLICA'`. `server/index.js` persiste parcelas en `server/data/parcelas.json` y perfiles únicos (clave normalizada sin duplicados) en `server/data/perfiles.json`, envía `estado_parcela_completo` y asigna `slotParrilla` (`0..7`) único vía `sala_actualizada`.
+4. **Rendimiento PBR, Red y Audio 16-Bit**: Renderizado PBR a 60 FPS (`ACESFilmicToneMapping`, `dt` acotado a `0.05s`), Parque Estelar de 130×130 m (`DIMENSION_LOBBY = 130`) con Rueda de la Fortuna animada y 3 pabellones temáticos, karts 120 pts (`kart_batmovil`/`formula`/`lemans`/`tumbler`), sincronización 20 Hz y motor musical 16-bit multi-pista (`js/partituras.js` + `js/audio.js` con eco SPC700).
+5. **UI Responsiva, PWA Fullscreen y Cámaras por Sala**: Viewport `100dvw`/`100dvh`, `manifest.json` (`display: "fullscreen"`), HUD minimalista superior (`#btn-musica` / `KeyM`, `#btn-pantalla-completa`), Menú Radial Dona (`#btn-menu-dona` / `Tab`), popover bloques (`#btn-toggle-bloques` / `KeyB`), garaje Kart (`#popover-kart` / `KeyG`, GP 160x160 m, Paddock, parrilla `P1–P8` 10s, podio 12s), salón Tetris 3D (`salaTetris.js`, 8 TV Gigante 3D 10x20), controles táctiles (`#controles-moviles`) y contrato polimórfico `obtenerConfigCamara(contextoCamara)` por experiencia.
 
 ## 2. Protocolo de Creación de Nuevos Minijuegos (Experiencias)
 
@@ -45,7 +45,8 @@ Para agregar un minijuego nuevo **sin modificar el núcleo ni el servidor**:
 | Categoría | IDs Canónicos |
 |---|---|
 | Renderizado | `lienzo-3d` |
-| HUD Compacto | `hud-superior`, `hud-apodo`, `hud-nivel`, `hud-xp-barra`, `hud-monedas`, `hud-experiencia`, `indicador-estado-red`, `btn-audio` |
+| Bienvenida y PWA | `pantalla-bienvenida`, `tab-perfil-existente`, `tab-perfil-nuevo`, `panel-perfil-existente`, `panel-perfil-nuevo`, `estado-carga-perfiles`, `btn-recargar-perfiles`, `lista-perfiles-existentes`, `btn-entrar-parque`, `input-nuevo-apodo`, `btn-crear-jugador`, `mensaje-error-bienvenida`, `btn-pantalla-completa` |
+| HUD Compacto | `hud-superior`, `hud-apodo`, `hud-nivel`, `hud-xp-barra`, `hud-monedas`, `hud-experiencia`, `indicador-estado-red`, `btn-audio`, `btn-musica`, `btn-pantalla-completa` |
 | Menú Dona y Social | `btn-menu-dona`, `menu-dona-overlay`, `btn-cerrar-dona`, `dona-btn-avatar`, `dona-btn-inventario`, `dona-btn-gestos`, `dona-btn-chat`, `dona-btn-sala`, `panel-gestos-dona`, `btn-cerrar-gestos`, `btn-gesto-saludar`, `btn-gesto-bailar`, `btn-gesto-celebrar`, `btn-gesto-sentarse`, `panel-chat-rapido`, `btn-cerrar-chat`, `input-chat-rapido`, `btn-enviar-chat` |
 | Panel Red / Warp | `panel-red`, `btn-cerrar-red`, `input-apodo`, `input-codigo-sala`, `btn-conectar-sala`, `btn-desconectar-sala`, `contador-jugadores`, `btn-warp-lobby`, `btn-warp-construccion`, `btn-warp-karts`, `btn-warp-tetris` |
 | Inventario / Avisos | `modal-inventario`, `btn-cerrar-inventario`, `lista-inventario`, `aviso-interaccion`, `contenedor-notificaciones` |

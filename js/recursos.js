@@ -190,6 +190,155 @@ export function obtenerTexturaSueloPlaza() {
 }
 
 /**
+ * Genera y cachea baldosas cálidas modernas de paseo temático con líneas de acento y relieve.
+ * @param {number} [repeticiones]
+ * @returns {{ map: THREE.CanvasTexture, bumpMap: THREE.CanvasTexture }}
+ */
+export function obtenerTexturaBulevarParque(repeticiones = 6) {
+    const map = obtenerOCrearTextura(`bulevar_parque_albedo_${repeticiones}`, 256, 256, (ctx) => {
+        ctx.fillStyle = '#e7d5b8';
+        ctx.fillRect(0, 0, 256, 256);
+
+        const pal = ['#f5ebd6', '#eadbc0', '#efe2ca', '#f8efe0'];
+        for (let r = 0; r < 4; r++) {
+            for (let c = 0; c < 4; c++) {
+                ctx.fillStyle = pal[(r * 3 + c) % pal.length];
+                ctx.fillRect(c * 64 + 2, r * 64 + 2, 60, 60);
+            }
+        }
+
+        // Lazo decorativo cálido dorado y cian en el patrón del paseo
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.26)';
+        ctx.fillRect(118, 0, 20, 256);
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.24)';
+        ctx.fillRect(0, 122, 256, 12);
+
+        ctx.strokeStyle = '#c4ae8c';
+        ctx.lineWidth = 2;
+        for (let i = 0; i <= 256; i += 64) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, 256);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, i);
+            ctx.lineTo(256, i);
+            ctx.stroke();
+        }
+    }, { repetir: repeticiones, anisotropia: 4 });
+
+    const bumpMap = obtenerOCrearTextura(`bulevar_parque_bump_${repeticiones}`, 256, 256, (ctx) => {
+        ctx.fillStyle = '#d0d0d0';
+        ctx.fillRect(0, 0, 256, 256);
+        ctx.strokeStyle = '#404040';
+        ctx.lineWidth = 4;
+        for (let i = 0; i <= 256; i += 64) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, 256);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, i);
+            ctx.lineTo(256, i);
+            ctx.stroke();
+        }
+    }, { repetir: repeticiones });
+
+    return { map, bumpMap };
+}
+
+/**
+ * Genera y cachea una textura de lona rayada festiva para toldos y kioscos del parque.
+ * @param {string} [colorPrimario]
+ * @param {string} [colorSecundario]
+ * @returns {THREE.CanvasTexture}
+ */
+export function obtenerTexturaCarpaParque(colorPrimario = '#ef4444', colorSecundario = '#fff7ed') {
+    const c1 = formatearColorCss(colorPrimario);
+    const c2 = formatearColorCss(colorSecundario);
+    return obtenerOCrearTextura(`carpa_parque_${c1}_${c2}`, 256, 256, (ctx) => {
+        const anchoFranja = 32;
+        for (let x = 0; x < 256; x += anchoFranja) {
+            ctx.fillStyle = ((x / anchoFranja) % 2 === 0) ? c1 : c2;
+            ctx.fillRect(x, 0, anchoFranja, 256);
+        }
+        // Tejido sutil y sombra en borde festoneado
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.08)';
+        for (let y = 0; y < 256; y += 16) {
+            ctx.fillRect(0, y, 256, 4);
+        }
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.16)';
+        ctx.fillRect(0, 238, 256, 18);
+    }, { repetir: 1, anisotropia: 4 });
+}
+
+/**
+ * Genera una textura de marquesina neón temporal por letrero (desechable automáticamente por `liberarObjeto3D`).
+ * @param {string} texto
+ * @param {number|string} [colorHex]
+ * @param {string} [subtitulo]
+ * @returns {THREE.CanvasTexture}
+ */
+export function obtenerTexturaLetreroNeon(texto, colorHex = '#38bdf8', subtitulo = '') {
+    const colorCss = formatearColorCss(colorHex);
+    const { canvas, ctx } = crearLienzo(512, 128);
+
+    ctx.fillStyle = '#0b1120';
+    ctx.fillRect(0, 0, 512, 128);
+
+    const grad = ctx.createLinearGradient(0, 0, 512, 128);
+    grad.addColorStop(0, 'rgba(30, 41, 59, 0.85)');
+    grad.addColorStop(0.5, 'rgba(15, 23, 42, 0.96)');
+    grad.addColorStop(1, 'rgba(30, 41, 59, 0.85)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(8, 8, 496, 112);
+
+    ctx.save();
+    ctx.shadowColor = colorCss;
+    ctx.shadowBlur = 16;
+    ctx.strokeStyle = colorCss;
+    ctx.lineWidth = 5;
+    ctx.strokeRect(10, 10, 492, 108);
+    ctx.restore();
+
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(18, 18, 476, 92);
+
+    // Bombillas de marquesina en el perímetro
+    for (let x = 28; x <= 484; x += 38) {
+        for (const y of [14, 114]) {
+            ctx.fillStyle = (Math.floor(x / 38) % 2 === 0) ? '#fef08a' : colorCss;
+            ctx.beginPath();
+            ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    ctx.save();
+    ctx.shadowColor = colorCss;
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 42px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(texto || '').slice(0, 22), 256, subtitulo ? 50 : 64);
+    ctx.restore();
+
+    if (subtitulo) {
+        ctx.fillStyle = colorCss;
+        ctx.font = 'bold 20px system-ui, -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(subtitulo).slice(0, 34), 256, 90);
+    }
+
+    const textura = new THREE.CanvasTexture(canvas);
+    textura.userData = { esClonTemporal: true };
+    return textura;
+}
+
+/**
  * Genera y cachea una textura estilizada con borde biselado y brillo para plataformas.
  * @param {number|string} colorHex
  * @returns {THREE.CanvasTexture}

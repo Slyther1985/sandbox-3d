@@ -16,6 +16,7 @@ import {
     reproducirSonido
 } from '../recursos.js';
 import { ExperienciaBase } from '../nucleoSandbox.js';
+import { CONFIG_CAMARA } from '../config.js';
 import { enviarEstadoJugadorInmediato, enviarEventoExperiencia } from '../red.js';
 
 export const TOTAL_ASIENTOS_TETRIS = 8;
@@ -612,6 +613,28 @@ export class SalaTetris extends ExperienciaBase {
             posicion: estacion.camaraPos,
             objetivo: estacion.camaraLook
         };
+    }
+
+    /**
+     * Regla de cámara de `SalaTetris`: tercera persona libre al caminar por el salón
+     * y primera persona enfocada a la TV Gigante 3D al sentarse.
+     * @param {object} [contextoCamara]
+     * @returns {object}
+     */
+    obtenerConfigCamara(contextoCamara = {}) {
+        if (estadoControles.modoTetrisActivo) {
+            const encuadre = this.obtenerEncuadreCamaraTetris3D();
+            if (encuadre) {
+                return {
+                    modo: 'primera_persona_tetris_3d',
+                    posicionObjetivo: { ...encuadre.posicion },
+                    puntoMira: { ...encuadre.objetivo },
+                    suavizado: 12,
+                    fov: CONFIG_CAMARA.fov
+                };
+            }
+        }
+        return super.obtenerConfigCamara(contextoCamara);
     }
 
     /**

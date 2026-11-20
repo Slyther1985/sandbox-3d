@@ -13,6 +13,7 @@ import {
 } from './constantes.js';
 
 const CLAVE_ALMACENAMIENTO = 'sandbox3d_jugador_v1';
+const CLAVE_PERFILES_LOCALES = 'sandbox3d_perfiles_locales_v1';
 
 const MAPA_MIGRACION_CHASIS = {
     kart_gt: 'kart_batmovil',
@@ -73,6 +74,9 @@ export const estadoControles = {
     sprintActivo: false,
     anguloCamaraY: 0,
     anguloCamaraPitch: 0.32,
+    tiempoOrbitaManual: 0,
+    orbitaManualActiva: false,
+    pantallaBienvenidaActiva: true,
     modoPreviewAvatar: false,
     anguloPreviewAvatar: 0,
     entidadCercana: null,
@@ -129,27 +133,27 @@ export function obtenerXpParaSiguienteNivel(nivel) {
  * Extrae una instantánea serializable del perfil del jugador.
  * @returns {object}
  */
-function construirResumenPerfil() {
+export function construirResumenPerfil() {
     return {
         apodo: estadoJugador.apodo,
         monedas: estadoJugador.monedas,
         nivel: estadoJugador.nivel,
         xp: estadoJugador.xp,
-        inventario: estadoJugador.inventario,
-        equipado: estadoJugador.equipado,
-        apariencia: estadoJugador.apariencia,
-        construccionGuardada: estadoJugador.construccionGuardada,
-        configKart: estadoJugador.configKart,
+        inventario: [...estadoJugador.inventario],
+        equipado: { ...estadoJugador.equipado },
+        apariencia: { ...estadoJugador.apariencia },
+        construccionGuardada: [...estadoJugador.construccionGuardada],
+        configKart: { ...estadoJugador.configKart },
         mejorVueltaKart: estadoJugador.mejorVueltaKart,
         mejorPuntajeTetris: estadoJugador.mejorPuntajeTetris
     };
 }
 
 /**
- * Valida y aplica un objeto de perfil cargado desde almacenamiento o código Base64.
+ * Valida y aplica un objeto de perfil cargado desde almacenamiento, servidor o código Base64.
  * @param {object} datos
  */
-function aplicarDatosPerfil(datos) {
+export function aplicarDatosPerfil(datos) {
     if (!datos || typeof datos !== 'object') {
         throw new Error('Datos de perfil inválidos.');
     }
@@ -249,15 +253,92 @@ function aplicarDatosPerfil(datos) {
 }
 
 /**
- * Guarda progreso completo del jugador (apariencia, inventario y construcción) en localStorage.
+ * Devuelve la lista de perfiles almacenados localmente en el navegador (respaldo offline).
+ * @returns {Array<object>}
+ */
+export function cargarPerfilesLocales() {
+    if (typeof localStorage === 'undefined') return [];
+    const mapa = new Map();
+    try {
+        const rawMapa = localStorage.getItem(CLAVE_PERFILES_LOCALES);
+        if (rawMapa) {
+            const parsed = JSON.parse(rawMapa);
+            if (parsed && typeof parsed === 'object') {
+                for (const [k, v] of Object.entries(parsed)) {
+                    if (v && typeof v === 'object' && typeof v.apodo === 'string' && v.apodo.trim().length >= 2) {
+                        mapa.set(k.trim().toLowerCase(), v);
+                    }
+                }
+            }
+        }
+        const rawActual = localStorage.getItem(CLAVE_ALMACENAMIENTO);
+        if (rawActual) {
+            const actual = JSON.parse(rawActual);
+            if (actual && typeof actual.apodo === 'string' && actual.apodo.trim().length >= 2) {
+                const key = actual.apodo.trim().toLowerCase();
+                if (!mapa.has(key)) {
+                    mapa.set(key, actual);
+                }
+            }
+        }
+    } catch (_err) {
+        // Ignorar almacenamiento corrupto
+    }
+    return Array.from(mapa.values()).sort((a, b) => (b.ultimaConexion || 0) - (a.ultimaConexion || 0));
+}
+
+/**
+ * Reinicia el estado del jugador con valores iniciales limpios para un nuevo perfil.
+ * @param {string} apodo
+ * @returns {object}
+ */
+export function restablecerPerfilNuevo(apodo) {
+    const limpio = String(apodo || 'Explorador').trim().replace(/\s+/g, ' ').slice(0, 18) || 'Explorador';
+    estadoJugador.apodo = limpio;
+    estadoJugador.monedas = MONEDAS_INICIALES;
+    estadoJugador.nivel = 1;
+    estadoJugador.xp = 0;
+    estadoJugador.inventario = ['gorra_neon'];
+    estadoJugador.equipado = { cabeza: 'gorra_neon', espalda: null, aura: null };
+    estadoJugador.apariencia = {
+        piel: '#ffdbac',
+        torso: '#2563eb',
+        piernas: '#1e293b',
+        rostro: 'feliz'
+    };
+    estadoJugador.construccionGuardada = [];
+    estadoJugador.configKart = {
+        chasis: 'kart_batmovil',
+        ruedas: 'rueda_clasica',
+        aleron: 'aleron_gt',
+        color: '#ff2e4c'
+    };
+    estadoJugador.mejorVueltaKart = null;
+    estadoJugador.mejorPuntajeTetris = 0;
+    guardarEstadoLocal();
+    return construirResumenPerfil();
+}
+
+/**
+ * Guarda progreso completo del jugador (apariencia, inventario y construcción) en localStorage
+ * y emite `'perfil_guardado'` para sincronización en red sin crear dependencias circulares.
  */
 export function guardarEstadoLocal() {
-    if (typeof localStorage === 'undefined') return;
-    try {
-        localStorage.setItem(CLAVE_ALMACENAMIENTO, JSON.stringify(construirResumenPerfil()));
-    } catch (_err) {
-        // Ignorar en entornos sin acceso a almacenamiento
+    const resumen = { ...construirResumenPerfil(), ultimaConexion: Date.now() };
+    if (typeof localStorage !== 'undefined') {
+        try {
+            localStorage.setItem(CLAVE_ALMACENAMIENTO, JSON.stringify(resumen));
+            const rawMapa = localStorage.getItem(CLAVE_PERFILES_LOCALES);
+            const mapa = rawMapa ? JSON.parse(rawMapa) : {};
+            if (mapa && typeof mapa === 'object' && !Array.isArray(mapa) && resumen.apodo) {
+                mapa[resumen.apodo.trim().toLowerCase()] = resumen;
+                localStorage.setItem(CLAVE_PERFILES_LOCALES, JSON.stringify(mapa));
+            }
+        } catch (_err) {
+            // Ignorar en entornos sin acceso a almacenamiento
+        }
     }
+    notificarEstado('perfil_guardado', resumen);
 }
 
 /**

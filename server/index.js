@@ -8,6 +8,7 @@ const { WebSocketServer, WebSocket } = require('ws');
 const PORT = Number(process.env.PORT || 8080);
 const DIR_DATOS = path.join(__dirname, 'data');
 const ARCHIVO_PARCELAS = path.join(DIR_DATOS, 'parcelas.json');
+const ARCHIVO_PERFILES = path.join(DIR_DATOS, 'perfiles.json');
 
 const TIPOS_BLOQUE_VALIDOS = new Set([
     'cesped',
@@ -33,7 +34,96 @@ const salas = new Map();
 /** @type {Map<string, Map<string, { x: number, y: number, z: number, tipo: string }>>} */
 const parcelasSalas = new Map();
 
+/** @type {Map<string, object>} */
+const perfiles = new Map();
+
 let timerGuardado = null;
+let timerGuardadoPerfiles = null;
+
+/**
+ * Normaliza un apodo para usarlo como clave única insensible a mayúsculas.
+ * @param {string} apodo
+ * @returns {string}
+ */
+function normalizarApodo(apodo) {
+    return String(apodo || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+}
+
+/**
+ * Limpia un apodo conservando mayúsculas/minúsculas originales (máx. 18 caracteres).
+ * @param {string} apodo
+ * @returns {string}
+ */
+function limpiarApodo(apodo) {
+    return String(apodo || '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .slice(0, 18);
+}
+
+/**
+ * Sanitiza y completa el esquema canónico de perfil de jugador.
+ * @param {object} datos
+ * @param {string} [apodoFallback]
+ * @returns {object}
+ */
+function sanitizarPerfil(datos, apodoFallback = 'Jugador') {
+    const src = datos && typeof datos === 'object' ? datos : {};
+    const apodoLimpio = limpiarApodo(apodoFallback || src.apodo || 'Jugador') || 'Jugador';
+    const bloquesValidos = [];
+    if (Array.isArray(src.construccionGuardada)) {
+        for (const item of src.construccionGuardada) {
+            const b = normalizarBloque(item);
+            if (b) bloquesValidos.push(b);
+        }
+    }
+
+    const apSrc = src.apariencia && typeof src.apariencia === 'object' ? src.apariencia : {};
+    const eqSrc = src.equipado && typeof src.equipado === 'object' ? src.equipado : {};
+    const kartSrc = src.configKart && typeof src.configKart === 'object' ? src.configKart : {};
+    const inv = Array.isArray(src.inventario) && src.inventario.length
+        ? Array.from(new Set(src.inventario.map((i) => String(i)).filter(Boolean)))
+        : ['gorra_neon'];
+    if (!inv.includes('gorra_neon')) inv.unshift('gorra_neon');
+
+    return {
+        apodo: apodoLimpio,
+        monedas: typeof src.monedas === 'number' && Number.isFinite(src.monedas) && src.monedas >= 0 ? Math.floor(src.monedas) : 50,
+        nivel: typeof src.nivel === 'number' && Number.isFinite(src.nivel) && src.nivel >= 1 ? Math.floor(src.nivel) : 1,
+        xp: typeof src.xp === 'number' && Number.isFinite(src.xp) && src.xp >= 0 ? Math.floor(src.xp) : 0,
+        inventario: inv,
+        equipado: {
+            cabeza: typeof eqSrc.cabeza === 'string' ? eqSrc.cabeza : (eqSrc.cabeza === null ? null : 'gorra_neon'),
+            espalda: typeof eqSrc.espalda === 'string' ? eqSrc.espalda : null,
+            aura: typeof eqSrc.aura === 'string' ? eqSrc.aura : null
+        },
+        apariencia: {
+            piel: typeof apSrc.piel === 'string' && /^#[0-9a-fA-F]{6}$/.test(apSrc.piel) ? apSrc.piel : '#ffdbac',
+            torso: typeof apSrc.torso === 'string' && /^#[0-9a-fA-F]{6}$/.test(apSrc.torso) ? apSrc.torso : '#2563eb',
+            piernas: typeof apSrc.piernas === 'string' && /^#[0-9a-fA-F]{6}$/.test(apSrc.piernas) ? apSrc.piernas : '#1e293b',
+            rostro: typeof apSrc.rostro === 'string' ? apSrc.rostro : 'feliz'
+        },
+        construccionGuardada: bloquesValidos,
+        configKart: {
+            chasis: typeof kartSrc.chasis === 'string' ? kartSrc.chasis : 'kart_batmovil',
+            ruedas: typeof kartSrc.ruedas === 'string' ? kartSrc.ruedas : 'rueda_clasica',
+            aleron: typeof kartSrc.aleron === 'string' ? kartSrc.aleron : 'aleron_gt',
+            color: typeof kartSrc.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(kartSrc.color) ? kartSrc.color : '#ff2e4c'
+        },
+        mejorVueltaKart:
+            typeof src.mejorVueltaKart === 'number' && Number.isFinite(src.mejorVueltaKart) && src.mejorVueltaKart > 1
+                ? src.mejorVueltaKart
+                : null,
+        mejorPuntajeTetris:
+            typeof src.mejorPuntajeTetris === 'number' && Number.isFinite(src.mejorPuntajeTetris) && src.mejorPuntajeTetris >= 0
+                ? Math.floor(src.mejorPuntajeTetris)
+                : 0,
+        ultimaConexion: typeof src.ultimaConexion === 'number' && Number.isFinite(src.ultimaConexion) ? src.ultimaConexion : Date.now()
+    };
+}
 
 /**
  * Valida y normaliza un bloque voxel recibido del cliente o de disco.
@@ -198,11 +288,174 @@ function difundirASala(codigoSala, payload, excluirId = null) {
     }
 }
 
-cargarParcelasDisco();
+/**
+ * Carga perfiles persistidos desde `server/data/perfiles.json` al iniciar.
+ */
+function cargarPerfilesDisco() {
+    try {
+        fs.mkdirSync(DIR_DATOS, { recursive: true });
+        if (!fs.existsSync(ARCHIVO_PERFILES)) {
+            fs.writeFileSync(ARCHIVO_PERFILES, '{}', 'utf8');
+            return;
+        }
+        const raw = fs.readFileSync(ARCHIVO_PERFILES, 'utf8');
+        const json = JSON.parse(raw || '{}');
+        for (const [clave, valor] of Object.entries(json)) {
+            const limpio = sanitizarPerfil(valor, valor?.apodo || clave);
+            const norm = normalizarApodo(limpio.apodo);
+            if (norm.length >= 2) {
+                perfiles.set(norm, limpio);
+            }
+        }
+    } catch (err) {
+        console.error('[sandbox-3d-server] Error cargando perfiles:', err.message);
+    }
+}
 
-const server = http.createServer((req, res) => {
+/**
+ * Programa escritura asíncrona con debounce a `server/data/perfiles.json`.
+ */
+function programarGuardadoPerfiles() {
+    if (timerGuardadoPerfiles) clearTimeout(timerGuardadoPerfiles);
+    timerGuardadoPerfiles = setTimeout(() => {
+        timerGuardadoPerfiles = null;
+        const salida = {};
+        for (const [clave, perfil] of perfiles.entries()) {
+            salida[clave] = perfil;
+        }
+        fs.mkdir(DIR_DATOS, { recursive: true }, () => {
+            fs.writeFile(ARCHIVO_PERFILES, JSON.stringify(salida, null, 2), 'utf8', (err) => {
+                if (err) {
+                    console.error('[sandbox-3d-server] Error guardando perfiles.json:', err.message);
+                }
+            });
+        });
+    }, 300);
+}
+
+/**
+ * Devuelve un Set con los apodos normalizados conectados actualmente en alguna sala.
+ * @returns {Set<string>}
+ */
+function obtenerApodosEnLinea() {
+    const activos = new Set();
+    for (const sala of salas.values()) {
+        for (const miembro of sala.values()) {
+            if (miembro?.ws?.readyState === WebSocket.OPEN && miembro?.datos?.apodo) {
+                activos.add(normalizarApodo(miembro.datos.apodo));
+            }
+        }
+    }
+    return activos;
+}
+
+/**
+ * Construye la lista pública de perfiles registrados con indicador `enLinea`.
+ * @returns {Array<object>}
+ */
+function construirListaPerfiles() {
+    const enLinea = obtenerApodosEnLinea();
+    const lista = [];
+    for (const [clave, perfil] of perfiles.entries()) {
+        lista.push({
+            ...perfil,
+            enLinea: enLinea.has(clave)
+        });
+    }
+    lista.sort((a, b) => {
+        if (a.enLinea !== b.enLinea) return a.enLinea ? -1 : 1;
+        return (b.ultimaConexion || 0) - (a.ultimaConexion || 0);
+    });
+    return lista;
+}
+
+/**
+ * Intenta crear un perfil único insensible a mayúsculas.
+ * @param {string} apodoRaw
+ * @param {object} [datosIniciales]
+ * @returns {{ ok: boolean, status: number, perfil?: object, error?: string }}
+ */
+function crearPerfilUnico(apodoRaw, datosIniciales = {}) {
+    const apodoLimpio = limpiarApodo(apodoRaw);
+    const apodoNorm = normalizarApodo(apodoLimpio);
+    if (apodoLimpio.length < 2 || apodoLimpio.length > 18) {
+        return {
+            ok: false,
+            status: 400,
+            error: 'El nombre debe tener entre 2 y 18 caracteres.'
+        };
+    }
+    if (perfiles.has(apodoNorm)) {
+        return {
+            ok: false,
+            status: 409,
+            error: 'Ese nombre ya existe. Elige otro o selecciona tu jugador.'
+        };
+    }
+    const nuevo = sanitizarPerfil({ ...datosIniciales, ultimaConexion: Date.now() }, apodoLimpio);
+    perfiles.set(apodoNorm, nuevo);
+    programarGuardadoPerfiles();
+    return { ok: true, status: 201, perfil: nuevo };
+}
+
+/**
+ * Actualiza y persiste la instantánea de un perfil existente (o lo registra si no estaba).
+ * @param {object} datosRaw
+ * @returns {{ ok: boolean, status: number, perfil?: object, error?: string }}
+ */
+function guardarPerfilExistente(datosRaw) {
+    const src = datosRaw && typeof datosRaw === 'object' ? datosRaw : {};
+    const apodoLimpio = limpiarApodo(src.apodo);
+    const apodoNorm = normalizarApodo(apodoLimpio);
+    if (apodoLimpio.length < 2) {
+        return { ok: false, status: 400, error: 'Apodo inválido para guardar perfil.' };
+    }
+    const previo = perfiles.get(apodoNorm);
+    const apodoCanonico = previo?.apodo || apodoLimpio;
+    const actualizado = sanitizarPerfil({ ...previo, ...src, ultimaConexion: Date.now() }, apodoCanonico);
+    perfiles.set(apodoNorm, actualizado);
+    programarGuardadoPerfiles();
+    return { ok: true, status: 200, perfil: actualizado };
+}
+
+/**
+ * Lee y parsea de forma segura el cuerpo JSON de una petición HTTP (máx. 64 KB).
+ * @param {http.IncomingMessage} req
+ * @param {number} [maxBytes]
+ * @returns {Promise<object>}
+ */
+function leerCuerpoJson(req, maxBytes = 65536) {
+    return new Promise((resolve, reject) => {
+        let tam = 0;
+        const trozos = [];
+        req.on('data', (chunk) => {
+            tam += chunk.length;
+            if (tam > maxBytes) {
+                reject(new Error('Cuerpo demasiado grande'));
+                req.destroy();
+                return;
+            }
+            trozos.push(chunk);
+        });
+        req.on('end', () => {
+            try {
+                const texto = Buffer.concat(trozos).toString('utf8');
+                resolve(texto ? JSON.parse(texto) : {});
+            } catch (_err) {
+                reject(new Error('JSON inválido'));
+            }
+        });
+        req.on('error', (err) => reject(err));
+    });
+}
+
+cargarParcelasDisco();
+cargarPerfilesDisco();
+
+const server = http.createServer(async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
     if (req.method === 'OPTIONS') {
@@ -212,7 +465,7 @@ const server = http.createServer((req, res) => {
     }
 
     const urlPath = (req.url || '/').split('?')[0];
-    if (urlPath === '/' || urlPath === '/health') {
+    if (req.method === 'GET' && (urlPath === '/' || urlPath === '/health')) {
         let totalConexiones = 0;
         for (const sala of salas.values()) {
             totalConexiones += sala.size;
@@ -223,9 +476,46 @@ const server = http.createServer((req, res) => {
             servicio: 'sandbox-3d-ws',
             salasActivas: salas.size,
             parcelasPersistidas: parcelasSalas.size,
+            perfilesRegistrados: perfiles.size,
             conexiones: totalConexiones,
             uptimeSegundos: Math.floor(process.uptime())
         }));
+        return;
+    }
+
+    if (req.method === 'GET' && urlPath === '/perfiles') {
+        res.writeHead(200);
+        res.end(JSON.stringify({
+            ok: true,
+            perfiles: construirListaPerfiles()
+        }));
+        return;
+    }
+
+    if (req.method === 'POST' && urlPath === '/perfiles') {
+        try {
+            const body = await leerCuerpoJson(req);
+            const resultado = crearPerfilUnico(body.apodo, body.perfil || body);
+            res.writeHead(resultado.status);
+            res.end(JSON.stringify(resultado));
+        } catch (err) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ ok: false, error: err.message }));
+        }
+        return;
+    }
+
+    if (req.method === 'POST' && urlPath === '/perfiles/guardar') {
+        try {
+            const body = await leerCuerpoJson(req);
+            const datosPerfil = body.perfil && typeof body.perfil === 'object' ? body.perfil : body;
+            const resultado = guardarPerfilExistente(datosPerfil);
+            res.writeHead(resultado.status);
+            res.end(JSON.stringify(resultado));
+        } catch (err) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ ok: false, error: err.message }));
+        }
         return;
     }
 
@@ -247,6 +537,42 @@ wss.on('connection', (ws) => {
             return;
         }
 
+        if (msg.tipo === 'listar_perfiles') {
+            enviarSeguro(ws, {
+                tipo: 'lista_perfiles',
+                solicitudId: msg.solicitudId || null,
+                ok: true,
+                perfiles: construirListaPerfiles()
+            });
+            return;
+        }
+
+        if (msg.tipo === 'crear_perfil') {
+            const resultado = crearPerfilUnico(msg.apodo, msg.perfil || {});
+            enviarSeguro(ws, {
+                tipo: 'respuesta_crear_perfil',
+                solicitudId: msg.solicitudId || null,
+                ok: resultado.ok,
+                perfil: resultado.perfil || null,
+                error: resultado.error || null
+            });
+            return;
+        }
+
+        if (msg.tipo === 'guardar_perfil' && (msg.perfil || msg.apodo)) {
+            const resultado = guardarPerfilExistente(msg.perfil || msg);
+            if (msg.solicitudId) {
+                enviarSeguro(ws, {
+                    tipo: 'respuesta_guardar_perfil',
+                    solicitudId: msg.solicitudId,
+                    ok: resultado.ok,
+                    perfil: resultado.perfil || null,
+                    error: resultado.error || null
+                });
+            }
+            return;
+        }
+
         if (msg.tipo === 'unirse_sala' && msg.jugador && msg.jugador.id) {
             const codigo = String(msg.codigoSala || 'SALA-PUBLICA')
                 .trim()
@@ -258,14 +584,42 @@ wss.on('connection', (ws) => {
             }
             const sala = salas.get(codigo);
 
+            const idSolicitante = String(msg.jugador.id);
+            const apodoEntrante = limpiarApodo(msg.jugador.apodo || 'Explorador') || 'Explorador';
+            const apodoNorm = normalizarApodo(apodoEntrante);
+
+            // Rechazar si el mismo apodo ya está conectado en otro socket activo dentro de la sala
+            for (const [idOtro, miembro] of sala.entries()) {
+                if (
+                    idOtro !== idSolicitante &&
+                    miembro?.ws !== ws &&
+                    miembro?.ws?.readyState === WebSocket.OPEN &&
+                    normalizarApodo(miembro?.datos?.apodo) === apodoNorm
+                ) {
+                    if (sala.size === 0) salas.delete(codigo);
+                    enviarSeguro(ws, {
+                        tipo: 'error_sala',
+                        codigo: 'APODO_EN_USO',
+                        error: 'Ese jugador ya está conectado en la sala.'
+                    });
+                    return;
+                }
+            }
+
             salaActual = codigo;
-            jugadorId = String(msg.jugador.id);
+            jugadorId = idSolicitante;
             const existente = sala.get(jugadorId);
             const esAnfitrion = sala.size === 0 || Boolean(existente?.datos?.esAnfitrion);
             const slotParrilla =
                 typeof existente?.datos?.slotParrilla === 'number'
                     ? existente.datos.slotParrilla
                     : asignarSlotParrillaLibre(sala, jugadorId);
+
+            if (perfiles.has(apodoNorm)) {
+                const pExistente = perfiles.get(apodoNorm);
+                pExistente.ultimaConexion = Date.now();
+                programarGuardadoPerfiles();
+            }
 
             const jugadoresPrevios = [];
             for (const [idOtro, miembro] of sala.entries()) {
@@ -276,6 +630,7 @@ wss.on('connection', (ws) => {
 
             const datosJugador = {
                 ...msg.jugador,
+                apodo: apodoEntrante,
                 id: jugadorId,
                 esAnfitrion,
                 slotParrilla

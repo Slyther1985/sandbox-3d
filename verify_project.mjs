@@ -38,6 +38,7 @@ function quitarComentarios(codigo) {
 // 1. Verificar existencia de archivos base y configuración Azure
 const archivosRequeridos = [
     'index.html',
+    'manifest.json',
     'css/estilos.css',
     'staticwebapp.config.json',
     'GEMINI.md',
@@ -46,8 +47,10 @@ const archivosRequeridos = [
     'verify_project.mjs',
     'js/constantes.js',
     'js/config.js',
+    'js/partituras.js',
     'js/estado.js',
     'js/recursos.js',
+    'js/audio.js',
     'js/nucleoSandbox.js',
     'js/avatar.js',
     'js/fisicaSandbox.js',
@@ -140,6 +143,8 @@ for (const archivo of archivosJs) {
 
 if (cicloEncontrado) {
     registrarError(`Dependencia circular detectada en grafo ES6: ${cicloEncontrado}`);
+} else if (archivosJs.length !== 16) {
+    registrarError(`Se esperaban 16 módulos ES6 en js/**/*.js, encontrados ${archivosJs.length}.`);
 } else {
     registrarOk(`Grafo ES6 acíclico (DAG) validado en ${archivosJs.length} módulos.`);
 }
@@ -240,7 +245,14 @@ if (fs.existsSync(rutaHtml) && fs.existsSync(rutaInterfaz)) {
         'btn-tetris-rotar',
         'btn-tetris-bajar',
         'btn-tetris-caida',
-        'btn-tetris-hold'
+        'btn-tetris-hold',
+        'pantalla-bienvenida',
+        'lista-perfiles-existentes',
+        'input-nuevo-apodo',
+        'btn-crear-jugador',
+        'btn-entrar-parque',
+        'btn-musica',
+        'btn-pantalla-completa'
     ]);
     const codigoInterfaz = fs.readFileSync(rutaInterfaz, 'utf8');
     const regexEl = /\bel\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
@@ -335,7 +347,7 @@ try {
     const tiene6Pads = /TOTAL_BOOST_PADS\s*=\s*6\b/.test(srcKarts);
     const tieneConteo10 = /DURACION_CONTEO_SALIDA\s*=\s*10(?:\.0)?\b/.test(srcKarts);
     const tieneObstaculos = ['bote_basura', 'tronco', 'oso'].every((t) => srcKarts.includes(t));
-    const tienePreviewKart = /garajeKartAbierto/.test(srcMain);
+    const tienePreviewKart = /garajeKartAbierto/.test(srcKarts) && /obtenerConfigCamara\s*\(/.test(srcKarts);
     const tieneColisionesKarts =
         /jugadoresRemotos/.test(srcKarts) &&
         /choque_kart/.test(srcKarts) &&
@@ -355,7 +367,8 @@ try {
         /DURACION_CEREMONIA_PODIO\s*=\s*12(?:\.0)?\b/.test(srcKarts) &&
         /obtenerMetaFinalistas/.test(srcKarts) &&
         /liberarObjeto3D/.test(srcKarts) &&
-        /modoCeremoniaPodio/.test(srcMain);
+        /modoCeremoniaPodio/.test(srcMain) &&
+        /modoCeremoniaPodio/.test(srcKarts);
 
     if (!tiene6Pads || !tieneConteo10 || !tieneObstaculos || !tienePreviewKart) {
         registrarError(
@@ -405,7 +418,8 @@ try {
         /crearCupulaCielo\(['"]tetris_arcade['"]\)/.test(srcTetris) &&
         /liberarObjeto3D/.test(srcTetris) &&
         /obtenerEncuadreCamaraTetris3D/.test(srcTetris) &&
-        /obtenerEncuadreCamaraTetris3D/.test(srcMain) &&
+        /obtenerConfigCamara\s*\(/.test(srcTetris) &&
+        /obtenerConfigCamara/.test(srcMain) &&
         /\bceldas3D\b/.test(srcTetris) &&
         /\bfantasmas3D\b/.test(srcTetris) &&
         /new\s+SalaTetris\s*\(/.test(srcMain) &&
@@ -426,7 +440,152 @@ try {
     registrarError(`No se pudo validar SalaTetris: ${err.message}`);
 }
 
-// 7. Verificar server/index.js (/health, evento_experiencia, accion_social, slotParrilla y parcelas.json)
+// 6d. Verificar Fase 6 Parte 1: Contrato de cámara polimórfico, PWA fullscreen y Sala Pública
+try {
+    const manifestJson = JSON.parse(fs.readFileSync(path.join(RAIZ, 'manifest.json'), 'utf8'));
+    const srcNucleo = fs.readFileSync(path.join(RAIZ, 'js', 'nucleoSandbox.js'), 'utf8');
+    const srcLobby = fs.readFileSync(path.join(RAIZ, 'js', 'experiencias', 'lobbyCentral.js'), 'utf8');
+    const srcConstr = fs.readFileSync(path.join(RAIZ, 'js', 'experiencias', 'zonaConstruccion.js'), 'utf8');
+    const srcKarts = fs.readFileSync(path.join(RAIZ, 'js', 'experiencias', 'arenaTurboKarts.js'), 'utf8');
+    const srcTetris = fs.readFileSync(path.join(RAIZ, 'js', 'experiencias', 'salaTetris.js'), 'utf8');
+    const srcMain = fs.readFileSync(path.join(RAIZ, 'js', 'main.js'), 'utf8');
+    const srcInterfaz = fs.readFileSync(path.join(RAIZ, 'js', 'interfaz.js'), 'utf8');
+    const srcConfig = fs.readFileSync(path.join(RAIZ, 'js', 'config.js'), 'utf8');
+    const srcRed = fs.readFileSync(path.join(RAIZ, 'js', 'red.js'), 'utf8');
+    const srcCss = fs.readFileSync(path.join(RAIZ, 'css', 'estilos.css'), 'utf8');
+
+    const pwaOk =
+        manifestJson?.display === 'fullscreen' &&
+        manifestJson?.theme_color === '#0e1424' &&
+        /100dvh/.test(srcCss) &&
+        /100dvw/.test(srcCss) &&
+        /requestFullscreen/.test(srcInterfaz);
+
+    const camaraPolimorficaOk =
+        /obtenerConfigCamara\s*\(/.test(srcNucleo) &&
+        /obtenerConfigCamara\s*\(/.test(srcLobby) &&
+        /tercera_persona_seguimiento/.test(srcLobby) &&
+        /obtenerConfigCamara\s*\(/.test(srcConstr) &&
+        /obtenerConfigCamara\s*\(/.test(srcKarts) &&
+        /obtenerConfigCamara\s*\(/.test(srcTetris) &&
+        /obtenerConfigCamara/.test(srcMain);
+
+    const salaPublicaYPerfilesOk =
+        /obtenerUrlHttpServidor/.test(srcConfig) &&
+        /listarPerfilesServidor/.test(srcRed) &&
+        /crearPerfilServidor/.test(srcRed) &&
+        /guardarPerfilServidor/.test(srcRed) &&
+        /conectarSalaMultijugador\(['"]SALA-PUBLICA['"]/.test(srcInterfaz);
+
+    if (!pwaOk || !camaraPolimorficaOk || !salaPublicaYPerfilesOk) {
+        registrarError(
+            `Falta configuración Fase 6 Parte 1 (pwa=${pwaOk}, camara=${camaraPolimorficaOk}, salaPublica=${salaPublicaYPerfilesOk}).`
+        );
+    } else {
+        registrarOk(
+            'Fase 6 Parte 1 verificada: PWA fullscreen (100dvh), Sala Pública automática, sync perfiles y contrato obtenerConfigCamara().'
+        );
+    }
+} catch (err) {
+    registrarError(`No se pudo validar Fase 6 Parte 1: ${err.message}`);
+}
+
+// 6e. Verificar Fase 6 Parte 2: Parque 130x130 m + Rueda de la Fortuna + Motor Musical 16-Bit
+try {
+    const { DIMENSION_LOBBY, MITAD_LOBBY } = await import('./js/constantes.js');
+    const {
+        CATALOGO_PARTITURAS,
+        MAPA_MUSICA_EXPERIENCIA,
+        notaAFrecuencia
+    } = await import('./js/partituras.js');
+
+    const srcLobby = fs.readFileSync(path.join(RAIZ, 'js', 'experiencias', 'lobbyCentral.js'), 'utf8');
+    const srcRecursos = fs.readFileSync(path.join(RAIZ, 'js', 'recursos.js'), 'utf8');
+    const srcAudio = fs.readFileSync(path.join(RAIZ, 'js', 'audio.js'), 'utf8');
+    const srcMain = fs.readFileSync(path.join(RAIZ, 'js', 'main.js'), 'utf8');
+    const srcInterfaz = fs.readFileSync(path.join(RAIZ, 'js', 'interfaz.js'), 'utf8');
+
+    const dimensionesLobbyOk = DIMENSION_LOBBY === 130 && MITAD_LOBBY === 65;
+    const parqueTematicoOk =
+        /ruedaFortuna/.test(srcLobby) &&
+        /gondolasRueda/.test(srcLobby) &&
+        /-this\.ruedaFortuna\.rotation\.z/.test(srcLobby) &&
+        /TALLER VOXEL/.test(srcLobby) &&
+        /TURBO KARTS GP/.test(srcLobby) &&
+        /TETRIS ARCADE/.test(srcLobby) &&
+        /liberarObjeto3D/.test(srcLobby) &&
+        /export\s+function\s+obtenerTexturaBulevarParque/.test(srcRecursos) &&
+        /export\s+function\s+obtenerTexturaCarpaParque/.test(srcRecursos) &&
+        /export\s+function\s+obtenerTexturaLetreroNeon/.test(srcRecursos);
+
+    const pistasEsperadas = ['lobby_parque', 'karts_topgear', 'tetris_ruso', 'taller_clasico'];
+    let partiturasValidas = Math.abs((notaAFrecuencia('A4') || 0) - 440) < 0.01;
+    partiturasValidas =
+        partiturasValidas &&
+        MAPA_MUSICA_EXPERIENCIA?.lobby === 'lobby_parque' &&
+        MAPA_MUSICA_EXPERIENCIA?.karts === 'karts_topgear' &&
+        MAPA_MUSICA_EXPERIENCIA?.tetris === 'tetris_ruso' &&
+        MAPA_MUSICA_EXPERIENCIA?.construccion === 'taller_clasico';
+
+    for (const idPista of pistasEsperadas) {
+        const pista = CATALOGO_PARTITURAS?.[idPista];
+        if (!pista || pista.subdivision !== 4 || typeof pista.pasos !== 'number' || pista.pasos < 64) {
+            partiturasValidas = false;
+            registrarError(`Partitura inválida o menor a 64 pasos: ${idPista}`);
+            continue;
+        }
+        const nPasos = pista.pasos;
+        if (
+            pista.melodia?.notas?.length !== nPasos ||
+            pista.armonia?.notas?.length !== nPasos ||
+            pista.bajo?.notas?.length !== nPasos ||
+            pista.percusion?.length !== nPasos
+        ) {
+            partiturasValidas = false;
+            registrarError(`Canales desalineados en partitura ${idPista} (esperados ${nPasos} pasos).`);
+            continue;
+        }
+        for (const canal of [pista.melodia, pista.armonia, pista.bajo]) {
+            for (const tok of canal.notas) {
+                if (tok === '_' || tok === '~') continue;
+                for (const sub of String(tok).split('/')) {
+                    const hz = notaAFrecuencia(sub);
+                    if (!Number.isFinite(hz) || hz <= 0) {
+                        partiturasValidas = false;
+                        registrarError(`Token de nota inválido "${sub}" en ${idPista}.`);
+                    }
+                }
+            }
+        }
+    }
+
+    const motorAudioOk =
+        /createDelay/.test(srcAudio) &&
+        /0\.135/.test(srcAudio) &&
+        /2200/.test(srcAudio) &&
+        /unison/.test(srcAudio) &&
+        /vibrato/.test(srcAudio) &&
+        /slideEntrada/.test(srcAudio) &&
+        /reproducirPercusion/.test(srcAudio) &&
+        /export\s+function\s+actualizarMusicaAmbiental/.test(srcAudio) &&
+        /actualizarMusicaAmbiental\s*\(/.test(srcMain) &&
+        /seleccionarMusicaExperiencia/.test(srcInterfaz) &&
+        /alternarSilencioMusica/.test(srcInterfaz);
+
+    if (!dimensionesLobbyOk || !parqueTematicoOk || !partiturasValidas || !motorAudioOk) {
+        registrarError(
+            `Falta configuración Fase 6 Parte 2 (dimLobby=${dimensionesLobbyOk}, parque=${parqueTematicoOk}, partituras=${partiturasValidas}, audio=${motorAudioOk}).`
+        );
+    } else {
+        registrarOk(
+            'Fase 6 Parte 2 verificada: Parque Estelar 130x130 m (Rueda de la Fortuna + 3 pabellones) y Motor Musical 16-Bit (4 partituras >= 64 pasos + SPC700 eco).'
+        );
+    }
+} catch (err) {
+    registrarError(`No se pudo validar Fase 6 Parte 2: ${err.message}`);
+}
+
+// 7. Verificar server/index.js (/health, perfiles.json, rutas HTTP/WS y rechazo de duplicados)
 const rutaServidor = path.join(RAIZ, 'server', 'index.js');
 if (fs.existsSync(rutaServidor)) {
     const srcSrv = fs.readFileSync(rutaServidor, 'utf8');
@@ -434,6 +593,15 @@ if (fs.existsSync(rutaServidor)) {
     const tieneEventoExp = /['"]evento_experiencia['"]/.test(srcSrv);
     const tieneAccionSocial = /['"]accion_social['"]/.test(srcSrv);
     const tieneParcelasJson = /parcelas\.json/.test(srcSrv);
+    const tienePerfilesJson =
+        /perfiles\.json/.test(srcSrv) &&
+        /['"]\/perfiles['"]/.test(srcSrv) &&
+        /['"]\/perfiles\/guardar['"]/.test(srcSrv) &&
+        /['"]listar_perfiles['"]/.test(srcSrv) &&
+        /['"]crear_perfil['"]/.test(srcSrv) &&
+        /['"]guardar_perfil['"]/.test(srcSrv) &&
+        /\b409\b/.test(srcSrv) &&
+        /APODO_EN_USO/.test(srcSrv);
     const tieneEstadoCompleto = /['"]estado_parcela_completo['"]/.test(srcSrv);
     const tieneSlotParrilla =
         /asignarSlotParrillaLibre/.test(srcSrv) &&
@@ -443,10 +611,11 @@ if (fs.existsSync(rutaServidor)) {
     if (!tieneEventoExp) registrarError('server/index.js debe retransmitir mensajes evento_experiencia.');
     if (!tieneAccionSocial) registrarError('server/index.js debe retransmitir mensajes accion_social.');
     if (!tieneParcelasJson) registrarError('server/index.js debe persistir parcelas en server/data/parcelas.json.');
+    if (!tienePerfilesJson) registrarError('server/index.js debe persistir perfiles únicos en perfiles.json y rechazar duplicados (409 / APODO_EN_USO).');
     if (!tieneEstadoCompleto) registrarError('server/index.js debe enviar estado_parcela_completo a los clientes.');
     if (!tieneSlotParrilla) registrarError('server/index.js debe asignar slotParrilla único y difundir sala_actualizada.');
-    if (tieneHealth && tieneEventoExp && tieneAccionSocial && tieneParcelasJson && tieneEstadoCompleto && tieneSlotParrilla) {
-        registrarOk('server/index.js expone /health, retransmite eventos, asigna slotParrilla y persiste parcelas.json.');
+    if (tieneHealth && tieneEventoExp && tieneAccionSocial && tieneParcelasJson && tienePerfilesJson && tieneEstadoCompleto && tieneSlotParrilla) {
+        registrarOk('server/index.js expone /health, /perfiles, asigna slotParrilla, rechaza duplicados y persiste parcelas.json + perfiles.json.');
     }
 }
 

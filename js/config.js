@@ -9,7 +9,7 @@ export const URL_WS_PRODUCCION = 'wss://sandbox-3d-ws.victoriouswater-aacb8bb6.e
 export const CONFIG_CAMARA = Object.freeze({
     fov: 60,
     cerca: 0.1,
-    lejos: 250,
+    lejos: 360,
     distancia: 8.5,
     altura: 4.2,
     sensibilidad: 0.004
@@ -51,4 +51,16 @@ export function obtenerUrlWebSocket() {
         }
     }
     return URL_WS_PRODUCCION;
+}
+
+/**
+ * Deriva la URL base HTTP/HTTPS del servidor backend a partir de `obtenerUrlWebSocket()`.
+ * @returns {string}
+ */
+export function obtenerUrlHttpServidor() {
+    const urlWs = obtenerUrlWebSocket();
+    return urlWs
+        .replace(/^wss:/i, 'https:')
+        .replace(/^ws:/i, 'http:')
+        .replace(/\/+$/, '');
 }

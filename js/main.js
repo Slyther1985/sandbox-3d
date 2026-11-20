@@ -17,6 +17,7 @@ import {
     actualizarPortalesFisicos
 } from './nucleoSandbox.js';
 import { actualizarRed } from './red.js';
+import { actualizarMusicaAmbiental, seleccionarMusicaExperiencia } from './audio.js';
 import { inicializarInterfaz, actualizarHUD } from './interfaz.js';
 import { LobbyCentral } from './experiencias/lobbyCentral.js';
 import { ZonaConstruccion } from './experiencias/zonaConstruccion.js';
@@ -63,8 +64,8 @@ function iniciarSandbox() {
     luzDireccional.shadow.mapSize.set(2048, 2048);
     luzDireccional.shadow.bias = -0.0004;
     luzDireccional.shadow.camera.near = 2;
-    luzDireccional.shadow.camera.far = 140;
-    const rango = 48;
+    luzDireccional.shadow.camera.far = 190;
+    const rango = 74;
     luzDireccional.shadow.camera.left = -rango;
     luzDireccional.shadow.camera.right = rango;
     luzDireccional.shadow.camera.top = rango;
@@ -103,6 +104,7 @@ function iniciarSandbox() {
     RegistroExperiencias.registrarExperiencia(arenaTurboKarts);
     RegistroExperiencias.registrarExperiencia(salaTetris);
     lobby.montar(escena, contextoSandbox);
+    seleccionarMusicaExperiencia('lobby');
 
     estadoJugador.posicion = { ...lobby.spawnJugador };
     avatarLocal.position.set(
@@ -122,16 +124,22 @@ function iniciarSandbox() {
     let ultimoTiempo = performance.now();
     const camObjetivo = new THREE.Vector3();
     const lookObjetivo = new THREE.Vector3();
+    const cfgInicial = lobby.obtenerConfigCamara({
+        dt: 0,
+        anchoPantalla: window.innerWidth,
+        altoPantalla: window.innerHeight
+    });
     const lookActual = new THREE.Vector3(
-        estadoJugador.posicion.x,
-        estadoJugador.posicion.y + 1.65,
-        estadoJugador.posicion.z
+        cfgInicial.puntoMira.x,
+        cfgInicial.puntoMira.y,
+        cfgInicial.puntoMira.z
     );
     camara.position.set(
-        estadoJugador.posicion.x,
-        estadoJugador.posicion.y + 4.5,
-        estadoJugador.posicion.z + CONFIG_CAMARA.distancia
+        cfgInicial.posicionObjetivo.x,
+        cfgInicial.posicionObjetivo.y,
+        cfgInicial.posicionObjetivo.z
     );
+    camara.lookAt(lookActual);
 
     function buclePrincipal(ahora) {
         requestAnimationFrame(buclePrincipal);
@@ -141,7 +149,12 @@ function iniciarSandbox() {
 
         const experienciaActiva = estadoSandbox.experienciaActual;
 
-        if (!estadoControles.modoPreviewAvatar && !estadoControles.modoCeremoniaPodio && !estadoControles.modoTetrisActivo) {
+        if (
+            !estadoControles.pantallaBienvenidaActiva &&
+            !estadoControles.modoPreviewAvatar &&
+            !estadoControles.modoCeremoniaPodio &&
+            !estadoControles.modoTetrisActivo
+        ) {
             actualizarFisicaSandbox(dt, avatarLocal, experienciaActiva?.configFisica);
         }
         experienciaActiva?.actualizar(dt, contextoSandbox);
@@ -155,23 +168,16 @@ function iniciarSandbox() {
                   ? 'celebrar'
                   : estadoJugador.enVehiculo
                     ? 'en_kart'
-                    : estadoControles.modoPreviewAvatar
+                    : estadoControles.modoPreviewAvatar || estadoControles.pantallaBienvenidaActiva
                       ? 'idle'
                       : estadoControles.animacionActual
         );
 
-        // Cámara orbital normal, TV Gigante 3D en primera persona, estudio de avatar o ceremonia podio
-        if (estadoControles.modoTetrisActivo) {
-            const encuadre = experienciaActiva?.obtenerEncuadreCamaraTetris3D?.();
-            if (encuadre) {
-                camObjetivo.set(encuadre.posicion.x, encuadre.posicion.y, encuadre.posicion.z);
-                lookObjetivo.set(encuadre.objetivo.x, encuadre.objetivo.y, encuadre.objetivo.z);
-            }
-        } else if (estadoControles.modoCeremoniaPodio && estadoControles.camaraPodio) {
-            const cp = estadoControles.camaraPodio;
-            camObjetivo.set(cp.posX, cp.posY, cp.posZ);
-            lookObjetivo.set(cp.lookX, cp.lookY, cp.lookZ);
-        } else if (estadoControles.modoPreviewAvatar) {
+        // Regla polimórfica de cámara por sala (preservando Estudio de Avatar con máxima prioridad)
+        let tasaSuavizado = 18;
+        let fovObjetivo = CONFIG_CAMARA.fov;
+
+        if (estadoControles.modoPreviewAvatar) {
             const yawPrev = estadoControles.anguloPreviewAvatar;
             const distPrev = 4.1;
             const px = estadoJugador.posicion.x;
@@ -191,72 +197,41 @@ function iniciarSandbox() {
                 py + 1.55,
                 pz + rightZ * desplazamientoIzq
             );
-        } else if (estadoJugador.enVehiculo && estadoControles.garajeKartAbierto) {
-            const rot = estadoJugador.rotacion;
-            const angShowcase = rot + 0.62;
-            const distShowcase = 4.6;
-            const px = estadoJugador.posicion.x;
-            const py = estadoJugador.posicion.y;
-            const pz = estadoJugador.posicion.z;
-            const rightX = Math.cos(angShowcase);
-            const rightZ = -Math.sin(angShowcase);
-            const desplazamientoIzq = window.innerWidth > 760 ? -0.75 : 0;
-
-            camObjetivo.set(
-                px + Math.sin(angShowcase) * distShowcase + rightX * desplazamientoIzq,
-                py + 2.0,
-                pz + Math.cos(angShowcase) * distShowcase + rightZ * desplazamientoIzq
-            );
-            lookObjetivo.set(
-                px + rightX * desplazamientoIzq,
-                py + 0.85,
-                pz + rightZ * desplazamientoIzq
-            );
-        } else if (estadoJugador.enVehiculo) {
-            const distKart = 6.6;
-            const rot = estadoJugador.rotacion;
-            const targetX = estadoJugador.posicion.x;
-            const targetY = estadoJugador.posicion.y + 1.5;
-            const targetZ = estadoJugador.posicion.z;
-
-            camObjetivo.set(
-                targetX - Math.sin(rot) * distKart,
-                targetY + 2.2,
-                targetZ - Math.cos(rot) * distKart
-            );
-            lookObjetivo.set(
-                targetX + Math.sin(rot) * 3.5,
-                targetY,
-                targetZ + Math.cos(rot) * 3.5
-            );
+            tasaSuavizado = 9;
         } else {
-            const dist = CONFIG_CAMARA.distancia;
-            const pitch = estadoControles.anguloCamaraPitch;
-            const yaw = estadoControles.anguloCamaraY;
-            const distHoriz = Math.cos(pitch) * dist;
-            const offsetY = Math.sin(pitch) * dist;
-
-            const targetX = estadoJugador.posicion.x;
-            const targetY = estadoJugador.posicion.y + 1.65;
-            const targetZ = estadoJugador.posicion.z;
-
-            camObjetivo.set(
-                targetX + Math.sin(yaw) * distHoriz,
-                targetY + offsetY,
-                targetZ + Math.cos(yaw) * distHoriz
-            );
-            lookObjetivo.set(targetX, targetY, targetZ);
+            const cfgCamara = experienciaActiva?.obtenerConfigCamara?.({
+                dt,
+                anchoPantalla: window.innerWidth,
+                altoPantalla: window.innerHeight
+            });
+            if (cfgCamara) {
+                camObjetivo.set(
+                    cfgCamara.posicionObjetivo.x,
+                    cfgCamara.posicionObjetivo.y,
+                    cfgCamara.posicionObjetivo.z
+                );
+                lookObjetivo.set(
+                    cfgCamara.puntoMira.x,
+                    cfgCamara.puntoMira.y,
+                    cfgCamara.puntoMira.z
+                );
+                tasaSuavizado = cfgCamara.suavizado || 18;
+                fovObjetivo = cfgCamara.fov || CONFIG_CAMARA.fov;
+            }
         }
 
-        const suavizado = Math.min(
-            1,
-            dt * (estadoControles.modoTetrisActivo ? 12 : estadoControles.modoCeremoniaPodio ? 6 : estadoControles.modoPreviewAvatar || estadoControles.garajeKartAbierto ? 9 : 18)
-        );
+        const suavizado = Math.min(1, dt * tasaSuavizado);
         camara.position.lerp(camObjetivo, suavizado);
         lookActual.lerp(lookObjetivo, suavizado);
         camara.lookAt(lookActual);
 
+        if (Math.abs(fovObjetivo - camara.fov) > 0.05) {
+            camara.fov += (fovObjetivo - camara.fov) * Math.min(1, dt * 8);
+            camara.updateProjectionMatrix();
+        }
+
         actualizarRed(dt, escena);
+        actualizarMusicaAmbiental(dt);
         actualizarHUD();
         renderer.render(escena, camara);
     }

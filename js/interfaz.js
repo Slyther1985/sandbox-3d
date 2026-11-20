@@ -11,6 +11,8 @@ import {
     RAREZAS
 } from './constantes.js';
 import {
+    aplicarDatosPerfil,
+    cargarPerfilesLocales,
     estadoControles,
     estadoJugador,
     estadoRed,
@@ -19,9 +21,16 @@ import {
     guardarEstadoLocal,
     importarCodigoPerfil,
     obtenerXpParaSiguienteNivel,
+    restablecerPerfilNuevo,
     suscribirEstado
 } from './estado.js';
 import { alternarSilencioAudio, reproducirSonido } from './recursos.js';
+import {
+    alternarSilencioMusica,
+    desbloquearMusica,
+    estaMusicaSilenciada,
+    seleccionarMusicaExperiencia
+} from './audio.js';
 import {
     actualizarAparienciaAvatar,
     actualizarEtiquetaAvatar,
@@ -32,9 +41,11 @@ import { activarGestoLocal } from './fisicaSandbox.js';
 import { RegistroExperiencias } from './nucleoSandbox.js';
 import {
     conectarSalaMultijugador,
+    crearPerfilServidor,
     desconectarSalaMultijugador,
     enviarAccionSocial,
-    enviarEstadoJugadorInmediato
+    enviarEstadoJugadorInmediato,
+    listarPerfilesServidor
 } from './red.js';
 
 let contextoGlobal = null;
@@ -665,6 +676,7 @@ function vincularControlesEntrada() {
             if (e.code === 'Escape') e.target.blur();
             return;
         }
+        if (estadoControles.pantallaBienvenidaActiva) return;
 
         if (estadoControles.modoTetrisActivo && estadoJugador.experienciaActiva === 'tetris') {
             const expTetris = estadoSandbox.experienciaActual;
@@ -719,6 +731,14 @@ function vincularControlesEntrada() {
             ejecutarInteraccion();
         } else if (e.code === 'KeyF') {
             dispararGestoSocial('saludar');
+        } else if (e.code === 'KeyM') {
+            const silenciada = alternarSilencioMusica();
+            const btnMusica = el('btn-musica');
+            if (btnMusica) {
+                btnMusica.textContent = silenciada ? '🔇' : '🎵';
+                btnMusica.classList.toggle('btn-musica-silenciada', silenciada);
+            }
+            mostrarNotificacion(silenciada ? 'Música 16-bit silenciada' : '🎵 Música 16-bit activa', 'info');
         } else if (e.code === 'KeyB' && estadoJugador.experienciaActiva === 'construccion') {
             const pop = el('popover-bloques');
             const oculto = pop?.classList.toggle('oculto');
@@ -768,6 +788,10 @@ function vincularControlesEntrada() {
             pointerCamara = e.pointerId;
             prevX = e.clientX;
             prevY = e.clientY;
+            if (!estadoControles.modoPreviewAvatar) {
+                estadoControles.orbitaManualActiva = true;
+                estadoControles.tiempoOrbitaManual = 2.0;
+            }
         });
 
         window.addEventListener('pointermove', (e) => {
@@ -780,6 +804,7 @@ function vincularControlesEntrada() {
             if (estadoControles.modoPreviewAvatar) {
                 estadoControles.anguloPreviewAvatar -= dx * 0.01;
             } else {
+                estadoControles.tiempoOrbitaManual = 2.0;
                 estadoControles.anguloCamaraY -= dx * 0.006;
                 estadoControles.anguloCamaraPitch = Math.max(
                     0.08,
@@ -791,6 +816,7 @@ function vincularControlesEntrada() {
         const soltarCamara = (e) => {
             if (e.pointerId === pointerCamara) {
                 pointerCamara = null;
+                estadoControles.orbitaManualActiva = false;
             }
         };
         window.addEventListener('pointerup', soltarCamara);
@@ -1035,6 +1061,352 @@ function vincularMenuRadialYSocial() {
 }
 
 /**
+ * Detecta si el navegador se ejecuta en un dispositivo móvil o táctil.
+ * @returns {boolean}
+ */
+function esDispositivoMovilTactil() {
+    if (typeof window === 'undefined') return false;
+    const punteroGrueso = Boolean(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    const puntosTactiles = (navigator.maxTouchPoints || 0) > 0;
+    return punteroGrueso || puntosTactiles;
+}
+
+/**
+ * Solicita modo pantalla completa con respaldo WebKit y manejo seguro de errores (iOS Safari).
+ */
+function solicitarPantallaCompletaSeguro() {
+    try {
+        const raiz = document.documentElement;
+        if (!raiz) return;
+        const metodo = raiz.requestFullscreen || raiz.webkitRequestFullscreen;
+        if (typeof metodo === 'function') {
+            const promesa = metodo.call(raiz);
+            if (promesa && typeof promesa.catch === 'function') {
+                promesa.catch(() => {});
+            }
+        }
+    } catch (_err) {
+        // Ignorar en navegadores sin soporte Fullscreen API (e.g., iOS Safari estándar)
+    }
+}
+
+/**
+ * Alterna entre pantalla completa y vista normal desde `#btn-pantalla-completa`.
+ */
+function alternarPantallaCompleta() {
+    try {
+        const activo = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+        if (activo) {
+            const salir = document.exitFullscreen || document.webkitExitFullscreen;
+            if (typeof salir === 'function') {
+                const promesa = salir.call(document);
+                if (promesa && typeof promesa.catch === 'function') {
+                    promesa.catch(() => {});
+                }
+            }
+        } else {
+            solicitarPantallaCompletaSeguro();
+        }
+    } catch (_err) {
+        // Ignorar errores de API de pantalla completa
+    }
+}
+
+/**
+ * Inicializa la puerta de entrada `#pantalla-bienvenida` (perfiles únicos + Sala Pública).
+ * @returns {Function} Función para reabrir y recargar la pantalla de bienvenida si ocurre rechazo de sala
+ */
+function inicializarPantallaBienvenida() {
+    const pantalla = el('pantalla-bienvenida');
+    const tabExistente = el('tab-perfil-existente');
+    const tabNuevo = el('tab-perfil-nuevo');
+    const panelExistente = el('panel-perfil-existente');
+    const panelNuevo = el('panel-perfil-nuevo');
+    const estadoCarga = el('estado-carga-perfiles');
+    const btnRecargar = el('btn-recargar-perfiles');
+    const listaPerfiles = el('lista-perfiles-existentes');
+    const btnEntrar = el('btn-entrar-parque');
+    const inputNuevo = el('input-nuevo-apodo');
+    const btnCrear = el('btn-crear-jugador');
+    const cajaError = el('mensaje-error-bienvenida');
+
+    if (!pantalla) {
+        estadoControles.pantallaBienvenidaActiva = false;
+        return () => {};
+    }
+
+    let perfilSeleccionado = null;
+    let cargandoPerfiles = false;
+
+    const mostrarError = (texto) => {
+        if (!cajaError) return;
+        if (!texto) {
+            cajaError.textContent = '';
+            cajaError.classList.add('oculto');
+        } else {
+            cajaError.textContent = texto;
+            cajaError.classList.remove('oculto');
+        }
+    };
+
+    const cambiarTab = (modo) => {
+        const esExistente = modo === 'existente';
+        tabExistente?.classList.toggle('activo', esExistente);
+        tabExistente?.setAttribute('aria-selected', String(esExistente));
+        tabNuevo?.classList.toggle('activo', !esExistente);
+        tabNuevo?.setAttribute('aria-selected', String(!esExistente));
+        panelExistente?.classList.toggle('oculto', !esExistente);
+        panelNuevo?.classList.toggle('oculto', esExistente);
+        mostrarError('');
+        if (!esExistente) {
+            setTimeout(() => inputNuevo?.focus(), 40);
+        }
+    };
+
+    const entrarAlParque = () => {
+        if (contextoGlobal?.avatarLocal) {
+            actualizarAparienciaAvatar(
+                contextoGlobal.avatarLocal,
+                estadoJugador.apariencia,
+                estadoJugador.equipado
+            );
+            sincronizarAccesoriosAvatar(contextoGlobal.avatarLocal, estadoJugador.equipado);
+            actualizarEtiquetaAvatar(
+                contextoGlobal.avatarLocal,
+                estadoJugador.apodo,
+                estadoJugador.nivel
+            );
+        }
+
+        const inputApodo = el('input-apodo');
+        const inputSala = el('input-codigo-sala');
+        if (inputApodo) inputApodo.value = estadoJugador.apodo;
+        if (inputSala) inputSala.value = 'SALA-PUBLICA';
+
+        guardarEstadoLocal();
+        estadoControles.pantallaBienvenidaActiva = false;
+        pantalla.classList.add('oculto');
+        mostrarError('');
+        mostrarNotificacion('Conectando a Sala Pública...', 'info');
+        const tituloMusica = seleccionarMusicaExperiencia(estadoJugador.experienciaActiva || 'lobby');
+        if (!estaMusicaSilenciada()) {
+            mostrarNotificacion(`🎵 ${tituloMusica}`, 'info');
+        }
+        conectarSalaMultijugador('SALA-PUBLICA');
+        actualizarHUD();
+    };
+
+    const renderizarListaPerfiles = (perfiles, desdeServidor) => {
+        if (!listaPerfiles) return;
+        listaPerfiles.innerHTML = '';
+        perfilSeleccionado = null;
+        if (btnEntrar) btnEntrar.disabled = true;
+
+        if (!perfiles || perfiles.length === 0) {
+            const vacio = document.createElement('div');
+            vacio.className = 'sin-perfiles-aviso';
+            vacio.textContent = desdeServidor
+                ? 'Aún no hay jugadores registrados en el servidor. ¡Crea tu jugador único en la pestaña siguiente!'
+                : 'No se encontraron perfiles guardados localmente. Crea un nuevo jugador.';
+            listaPerfiles.appendChild(vacio);
+            return;
+        }
+
+        const apodoPrevio = (estadoJugador.apodo || '').trim().toLowerCase();
+        let botonPreseleccionado = null;
+
+        for (const perfil of perfiles) {
+            const tarjeta = document.createElement('button');
+            tarjeta.type = 'button';
+            tarjeta.className = 'tarjeta-perfil';
+            tarjeta.disabled = Boolean(perfil.enLinea);
+
+            const infoIzq = document.createElement('div');
+            infoIzq.className = 'perfil-info-izq';
+
+            const swatch = document.createElement('span');
+            swatch.className = 'perfil-avatar-swatch';
+            swatch.style.background = `linear-gradient(135deg, ${perfil.apariencia?.torso || '#2563eb'}, ${perfil.apariencia?.piernas || '#1e293b'})`;
+
+            const meta = document.createElement('div');
+            meta.className = 'perfil-meta';
+            const nom = document.createElement('strong');
+            nom.textContent = perfil.apodo;
+            const det = document.createElement('span');
+            det.textContent = `Nv. ${perfil.nivel || 1} · 🪙 ${perfil.monedas ?? 50}`;
+            meta.append(nom, det);
+
+            infoIzq.append(swatch, meta);
+
+            const badge = document.createElement('span');
+            badge.className = `badge-perfil-estado ${perfil.enLinea ? 'badge-en-linea' : 'badge-disponible'}`;
+            badge.textContent = perfil.enLinea ? 'En línea' : 'Disponible';
+
+            tarjeta.append(infoIzq, badge);
+
+            tarjeta.addEventListener('click', () => {
+                if (perfil.enLinea) {
+                    mostrarError('Este jugador ya se encuentra conectado en la sala.');
+                    return;
+                }
+                mostrarError('');
+                for (const hija of listaPerfiles.querySelectorAll('.tarjeta-perfil')) {
+                    hija.classList.remove('seleccionado');
+                }
+                tarjeta.classList.add('seleccionado');
+                perfilSeleccionado = perfil;
+                if (btnEntrar) btnEntrar.disabled = false;
+            });
+
+            listaPerfiles.appendChild(tarjeta);
+
+            if (!perfil.enLinea && !botonPreseleccionado && perfil.apodo?.trim().toLowerCase() === apodoPrevio) {
+                botonPreseleccionado = { tarjeta, perfil };
+            }
+        }
+
+        if (botonPreseleccionado) {
+            botonPreseleccionado.tarjeta.classList.add('seleccionado');
+            perfilSeleccionado = botonPreseleccionado.perfil;
+            if (btnEntrar) btnEntrar.disabled = false;
+        }
+    };
+
+    const cargarPerfiles = async () => {
+        if (cargandoPerfiles) return;
+        cargandoPerfiles = true;
+        if (btnRecargar) btnRecargar.disabled = true;
+        if (estadoCarga) {
+            estadoCarga.innerHTML = '<span class="spinner-carga" aria-hidden="true"></span><span>Consultando jugadores (puede tardar unos segundos si el servidor despierta)...</span>';
+        }
+
+        const resp = await listarPerfilesServidor();
+        cargandoPerfiles = false;
+        if (btnRecargar) btnRecargar.disabled = false;
+
+        if (resp.ok) {
+            if (estadoCarga) {
+                estadoCarga.textContent = `${resp.perfiles.length} jugador(es) registrado(s) en el servidor`;
+            }
+            renderizarListaPerfiles(resp.perfiles, true);
+            if (resp.perfiles.length === 0) {
+                cambiarTab('nuevo');
+            }
+        } else {
+            const locales = cargarPerfilesLocales();
+            if (estadoCarga) {
+                estadoCarga.textContent = 'Servidor sin respuesta; usando perfiles guardados en este dispositivo.';
+            }
+            renderizarListaPerfiles(locales, false);
+            if (locales.length === 0) {
+                cambiarTab('nuevo');
+            }
+        }
+    };
+
+    tabExistente?.addEventListener('click', () => cambiarTab('existente'));
+    tabNuevo?.addEventListener('click', () => cambiarTab('nuevo'));
+    btnRecargar?.addEventListener('click', () => {
+        mostrarError('');
+        cargarPerfiles();
+    });
+
+    btnEntrar?.addEventListener('click', () => {
+        if (!perfilSeleccionado) {
+            mostrarError('Selecciona un jugador disponible para entrar.');
+            return;
+        }
+        desbloquearMusica();
+        if (esDispositivoMovilTactil()) {
+            solicitarPantallaCompletaSeguro();
+        }
+        try {
+            restablecerPerfilNuevo(perfilSeleccionado.apodo);
+            aplicarDatosPerfil(perfilSeleccionado);
+        } catch (_err) {
+            mostrarError('No se pudo cargar el perfil seleccionado.');
+            return;
+        }
+        entrarAlParque();
+    });
+
+    const confirmarNuevoJugador = async () => {
+        const apodo = (inputNuevo?.value || '').trim().replace(/\s+/g, ' ').slice(0, 18);
+        if (apodo.length < 2) {
+            mostrarError('Escribe un nombre de entre 2 y 18 caracteres.');
+            return;
+        }
+        mostrarError('');
+
+        desbloquearMusica();
+        if (esDispositivoMovilTactil()) {
+            solicitarPantallaCompletaSeguro();
+        }
+
+        if (btnCrear) {
+            btnCrear.disabled = true;
+            btnCrear.textContent = 'Registrando jugador...';
+        }
+
+        const resp = await crearPerfilServidor(apodo);
+
+        if (btnCrear) {
+            btnCrear.disabled = false;
+            btnCrear.textContent = 'Crear y Entrar al Parque';
+        }
+
+        if (resp.duplicado) {
+            mostrarError(resp.error || 'Ese nombre ya existe. Elige otro o selecciona tu jugador.');
+            return;
+        }
+
+        if (!resp.ok && !resp.offline) {
+            mostrarError(resp.error || 'No se pudo crear el jugador.');
+            return;
+        }
+
+        if (resp.offline) {
+            const locales = cargarPerfilesLocales();
+            const existeLocal = locales.some(
+                (p) => (p.apodo || '').trim().toLowerCase() === apodo.toLowerCase()
+            );
+            if (existeLocal) {
+                mostrarError('Ese nombre ya existe en este dispositivo. Selecciónalo en la pestaña anterior.');
+                return;
+            }
+            restablecerPerfilNuevo(apodo);
+            entrarAlParque();
+            return;
+        }
+
+        restablecerPerfilNuevo(resp.perfil.apodo);
+        aplicarDatosPerfil(resp.perfil);
+        entrarAlParque();
+    };
+
+    btnCrear?.addEventListener('click', confirmarNuevoJugador);
+    inputNuevo?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            confirmarNuevoJugador();
+        }
+    });
+    inputNuevo?.addEventListener('input', () => mostrarError(''));
+
+    estadoControles.pantallaBienvenidaActiva = true;
+    pantalla.classList.remove('oculto');
+    cargarPerfiles();
+
+    return (mensajeError = '') => {
+        estadoControles.pantallaBienvenidaActiva = true;
+        pantalla.classList.remove('oculto');
+        cambiarTab('existente');
+        if (mensajeError) mostrarError(mensajeError);
+        cargarPerfiles();
+    };
+}
+
+/**
  * Inicializa toda la interfaz de usuario y la enlaza con el núcleo del Sandbox.
  * @param {object} contextoSandbox
  */
@@ -1048,6 +1420,20 @@ export function inicializarInterfaz(contextoSandbox) {
 
     void el('hud-superior');
     void el('controles-moviles');
+
+    const btnPantallaCompleta = el('btn-pantalla-completa');
+    if (btnPantallaCompleta) {
+        btnPantallaCompleta.addEventListener('click', alternarPantallaCompleta);
+        const actualizarIconoFullscreen = () => {
+            const enFull = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+            btnPantallaCompleta.textContent = enFull ? '🗗' : '⛶';
+            btnPantallaCompleta.title = enFull ? 'Salir de Pantalla Completa' : 'Pantalla Completa';
+        };
+        document.addEventListener('fullscreenchange', actualizarIconoFullscreen);
+        document.addEventListener('webkitfullscreenchange', actualizarIconoFullscreen);
+    }
+
+    const reabrirBienvenida = inicializarPantallaBienvenida();
 
     el('btn-cerrar-avatar')?.addEventListener('click', () => {
         alternarEstudioAvatar(false);
@@ -1169,6 +1555,27 @@ export function inicializarInterfaz(contextoSandbox) {
         e.currentTarget.textContent = silenciado ? '🔇' : '🔊';
     });
 
+    const btnMusica = el('btn-musica');
+    if (btnMusica) {
+        const sincronizarBtnMusica = (silenciada) => {
+            btnMusica.textContent = silenciada ? '🔇' : '🎵';
+            btnMusica.classList.toggle('btn-musica-silenciada', silenciada);
+        };
+        sincronizarBtnMusica(estaMusicaSilenciada());
+        btnMusica.addEventListener('click', () => {
+            const silenciada = alternarSilencioMusica();
+            sincronizarBtnMusica(silenciada);
+        });
+    }
+
+    const desbloquearUnaVez = () => {
+        desbloquearMusica();
+        window.removeEventListener('pointerdown', desbloquearUnaVez);
+        window.removeEventListener('keydown', desbloquearUnaVez);
+    };
+    window.addEventListener('pointerdown', desbloquearUnaVez, { passive: true });
+    window.addEventListener('keydown', desbloquearUnaVez, { passive: true });
+
     el('btn-conectar-sala')?.addEventListener('click', () => {
         const nuevoApodo = inputApodo?.value?.trim() || estadoJugador.apodo;
         const codigoSala = inputSala?.value?.trim() || 'SALA-PUBLICA';
@@ -1219,8 +1626,14 @@ export function inicializarInterfaz(contextoSandbox) {
             }
         } else if (evento === 'aviso' && detalle?.mensaje) {
             mostrarNotificacion(detalle.mensaje, 'info');
+        } else if (evento === 'error_sala' && detalle?.codigo === 'APODO_EN_USO') {
+            reabrirBienvenida(detalle.error || 'Ese jugador ya está conectado en la sala.');
         } else if (evento === 'experiencia_cambiada' && detalle?.nombre) {
             mostrarNotificacion(`Entraste a: ${detalle.nombre}`, 'exito');
+            const tituloMusica = seleccionarMusicaExperiencia(detalle.id || estadoJugador.experienciaActiva);
+            if (!estaMusicaSilenciada() && !estadoControles.pantallaBienvenidaActiva) {
+                mostrarNotificacion(`🎵 ${tituloMusica}`, 'info');
+            }
         } else if (evento === 'tetris_cambio') {
             renderizarOverlayTetris();
         }

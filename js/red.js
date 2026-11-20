@@ -3,13 +3,15 @@
  * sincronización a 20 Hz e interpolación de avatares remotos.
  */
 import { INTERVALO_ENVIO_MS } from './constantes.js';
-import { obtenerUrlWebSocket } from './config.js';
+import { obtenerUrlHttpServidor, obtenerUrlWebSocket } from './config.js';
 import {
+    construirResumenPerfil,
     estadoControles,
     estadoJugador,
     estadoRed,
     estadoSandbox,
-    notificarEstado
+    notificarEstado,
+    suscribirEstado
 } from './estado.js';
 import {
     actualizarAnimacionAvatar,
@@ -25,6 +27,125 @@ let socket = null;
 let acumuladorEnvioMs = 0;
 let escenaActiva = null;
 let receptorEventosExperiencia = null;
+let timerSyncPerfil = null;
+let timerTimeoutConexion = null;
+let errorSalaRecibido = false;
+
+/**
+ * Ejecuta `fetch` JSON con timeout para soportar cold-start de Azure sin bloquear la UI.
+ * @param {string} url
+ * @param {object} [opciones]
+ * @param {number} [timeoutMs]
+ * @returns {Promise<{ ok: boolean, status: number, data: object }>}
+ */
+async function fetchJsonConTimeout(url, opciones = {}, timeoutMs = 15000) {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+        const res = await fetch(url, {
+            ...opciones,
+            signal: controller ? controller.signal : undefined
+        });
+        const data = await res.json().catch(() => ({}));
+        return { ok: res.ok, status: res.status, data };
+    } finally {
+        if (timer) clearTimeout(timer);
+    }
+}
+
+/**
+ * Obtiene la lista de perfiles únicos persistidos en el servidor.
+ * @returns {Promise<{ ok: boolean, offline?: boolean, perfiles: Array<object> }>}
+ */
+export async function listarPerfilesServidor() {
+    try {
+        const { ok, data } = await fetchJsonConTimeout(`${obtenerUrlHttpServidor()}/perfiles`, {
+            method: 'GET',
+            cache: 'no-store'
+        }, 15000);
+        if (ok && data?.ok && Array.isArray(data.perfiles)) {
+            return { ok: true, perfiles: data.perfiles };
+        }
+        return { ok: false, offline: true, perfiles: [] };
+    } catch (_err) {
+        return { ok: false, offline: true, perfiles: [] };
+    }
+}
+
+/**
+ * Registra un perfil único en el servidor rechazando duplicados insensibles a mayúsculas.
+ * @param {string} apodo
+ * @param {object|null} [perfilInicial]
+ * @returns {Promise<{ ok: boolean, duplicado?: boolean, offline?: boolean, perfil?: object, error?: string }>}
+ */
+export async function crearPerfilServidor(apodo, perfilInicial = null) {
+    try {
+        const { ok, status, data } = await fetchJsonConTimeout(`${obtenerUrlHttpServidor()}/perfiles`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apodo, perfil: perfilInicial })
+        }, 15000);
+
+        if (status === 409) {
+            return {
+                ok: false,
+                duplicado: true,
+                error: data?.error || 'Ese nombre ya existe. Elige otro o selecciona tu jugador.'
+            };
+        }
+        if (ok && data?.ok && data?.perfil) {
+            return { ok: true, perfil: data.perfil };
+        }
+        if (status === 400) {
+            return { ok: false, error: data?.error || 'El nombre debe tener entre 2 y 18 caracteres.' };
+        }
+        return { ok: false, offline: true, error: data?.error || 'Servidor no disponible.' };
+    } catch (_err) {
+        return { ok: false, offline: true, error: 'Servidor no disponible; iniciando en modo local.' };
+    }
+}
+
+/**
+ * Sincroniza la instantánea del perfil actual hacia `server/data/perfiles.json`.
+ * @param {object|null} [resumen]
+ * @returns {Promise<{ ok: boolean }>}
+ */
+export async function guardarPerfilServidor(resumen = null) {
+    const perfil = resumen || construirResumenPerfil();
+    if (!perfil?.apodo || perfil.apodo.trim().length < 2) {
+        return { ok: false };
+    }
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            tipo: 'guardar_perfil',
+            perfil
+        }));
+        return { ok: true };
+    }
+    try {
+        const { ok } = await fetchJsonConTimeout(`${obtenerUrlHttpServidor()}/perfiles/guardar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ perfil })
+        }, 8000);
+        return { ok };
+    } catch (_err) {
+        return { ok: false };
+    }
+}
+
+// Auto-sincronización throttled/debounced al guardar estado local mientras está en línea
+suscribirEstado((evento, detalle) => {
+    if (evento !== 'perfil_guardado') return;
+    if (estadoControles.pantallaBienvenidaActiva || !estadoRed.conectado) return;
+    if (timerSyncPerfil) clearTimeout(timerSyncPerfil);
+    timerSyncPerfil = setTimeout(() => {
+        timerSyncPerfil = null;
+        if (estadoRed.conectado) {
+            guardarPerfilServidor(detalle);
+        }
+    }, 1200);
+});
 
 /**
  * Registra un manejador adicional para eventos genéricos de experiencia.
@@ -185,7 +306,15 @@ function procesarMensajeServidor(raw) {
                 accion: 'pedir_estado_parcela',
                 experienciaId: 'construccion'
             });
+            guardarPerfilServidor(construirResumenPerfil());
             notificarEstado('red_cambio', { conectado: true, codigoSala: msg.codigoSala });
+            break;
+
+        case 'error_sala':
+            errorSalaRecibido = true;
+            desconectarSalaMultijugador(escenaActiva);
+            notificarEstado('aviso', { mensaje: msg.error || 'No se pudo entrar a la sala.' });
+            notificarEstado('error_sala', msg);
             break;
 
         case 'sala_actualizada':
@@ -305,7 +434,7 @@ export function enviarEstadoJugadorInmediato() {
  */
 export function conectarSalaMultijugador(codigoSala, apodo, escena) {
     escenaActiva = escena || escenaActiva;
-    if (apodo && apodo.trim()) {
+    if (typeof apodo === 'string' && apodo.trim()) {
         estadoJugador.apodo = apodo.trim().slice(0, 18);
     }
 
@@ -314,13 +443,20 @@ export function conectarSalaMultijugador(codigoSala, apodo, escena) {
     if (socket) {
         desconectarSalaMultijugador(escenaActiva);
     }
+    if (timerTimeoutConexion) {
+        clearTimeout(timerTimeoutConexion);
+        timerTimeoutConexion = null;
+    }
+    errorSalaRecibido = false;
 
     const urlWs = obtenerUrlWebSocket();
     estadoRed.modo = 'conectando';
     notificarEstado('red_cambio', { conectado: false, conectando: true });
 
+    let wsLocal = null;
     try {
-        socket = new WebSocket(urlWs);
+        wsLocal = new WebSocket(urlWs);
+        socket = wsLocal;
     } catch (_err) {
         estadoRed.conectado = false;
         estadoRed.modo = 'offline';
@@ -329,25 +465,57 @@ export function conectarSalaMultijugador(codigoSala, apodo, escena) {
         return;
     }
 
-    socket.addEventListener('open', () => {
-        socket.send(JSON.stringify({
+    timerTimeoutConexion = setTimeout(() => {
+        timerTimeoutConexion = null;
+        if (wsLocal && wsLocal.readyState === WebSocket.CONNECTING) {
+            try {
+                wsLocal.close();
+            } catch (_err) {
+                // Ignorar error de cierre por timeout
+            }
+            if (socket === wsLocal) {
+                socket = null;
+                estadoRed.conectado = false;
+                estadoRed.modo = 'offline';
+                notificarEstado('aviso', {
+                    mensaje: 'Servidor multijugador lento o inalcanzable; continuando en modo offline.'
+                });
+                notificarEstado('red_cambio', { conectado: false });
+            }
+        }
+    }, 14000);
+
+    wsLocal.addEventListener('open', () => {
+        if (timerTimeoutConexion) {
+            clearTimeout(timerTimeoutConexion);
+            timerTimeoutConexion = null;
+        }
+        if (socket !== wsLocal) return;
+        wsLocal.send(JSON.stringify({
             tipo: 'unirse_sala',
             codigoSala: salaNormalizada,
             jugador: serializarEstadoJugadorLocal()
         }));
     });
 
-    socket.addEventListener('message', (evento) => {
+    wsLocal.addEventListener('message', (evento) => {
+        if (socket !== wsLocal) return;
         procesarMensajeServidor(evento.data);
     });
 
-    socket.addEventListener('error', () => {
+    wsLocal.addEventListener('error', () => {
+        if (socket !== wsLocal || errorSalaRecibido) return;
         notificarEstado('aviso', {
             mensaje: 'Servidor multijugador no disponible; continuando en modo offline.'
         });
     });
 
-    socket.addEventListener('close', () => {
+    wsLocal.addEventListener('close', () => {
+        if (timerTimeoutConexion) {
+            clearTimeout(timerTimeoutConexion);
+            timerTimeoutConexion = null;
+        }
+        if (socket !== wsLocal) return;
         socket = null;
         limpiarJugadoresRemotos();
         estadoRed.conectado = false;
@@ -365,13 +533,18 @@ export function conectarSalaMultijugador(codigoSala, apodo, escena) {
  * @param {THREE.Scene} [_escena]
  */
 export function desconectarSalaMultijugador(_escena) {
+    if (timerTimeoutConexion) {
+        clearTimeout(timerTimeoutConexion);
+        timerTimeoutConexion = null;
+    }
     if (socket) {
+        const previo = socket;
+        socket = null;
         try {
-            socket.close();
+            previo.close();
         } catch (_err) {
             // Ignorar error de cierre
         }
-        socket = null;
     }
     limpiarJugadoresRemotos();
     estadoRed.conectado = false;

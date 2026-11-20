@@ -67,6 +67,12 @@ function solapaXZ(px, pz, radio, c) {
  * @param {object} [configFisica]
  */
 export function actualizarFisicaSandbox(dt, avatarLocal, configFisica = {}) {
+    if (estadoControles.pantallaBienvenidaActiva) {
+        estadoControles.animacionActual = 'idle';
+        estadoControles.entidadCercana = null;
+        return;
+    }
+
     if (estadoJugador.enVehiculo || estadoControles.modoTetrisActivo) {
         estadoControles.animacionActual = estadoJugador.enVehiculo ? 'en_kart' : 'sentarse';
         estadoControles.entidadCercana = null;
@@ -161,8 +167,9 @@ export function actualizarFisicaSandbox(dt, avatarLocal, configFisica = {}) {
         }
     }
 
-    pos.x = Math.max(-LIMITE_MUNDO, Math.min(LIMITE_MUNDO, pos.x));
-    pos.z = Math.max(-LIMITE_MUNDO, Math.min(LIMITE_MUNDO, pos.z));
+    const limite = configFisica.limiteMundo ?? LIMITE_MUNDO;
+    pos.x = Math.max(-limite, Math.min(limite, pos.x));
+    pos.z = Math.max(-limite, Math.min(limite, pos.z));
 
     // 5. Integración vertical con detección de plataformas y techos
     const prevY = pos.y;

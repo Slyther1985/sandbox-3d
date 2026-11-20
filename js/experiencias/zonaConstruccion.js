@@ -74,6 +74,7 @@ export class ZonaConstruccion extends ExperienciaBase {
         this.grupoBloques = new THREE.Group();
         this.grupoBloques.name = 'bloques_voxel';
         this.grupoRaiz.add(this.grupoBloques);
+        this.configFisica.limiteMundo = 31.5;
 
         this._construirEntornoParcela();
         this._construirVistaPreviaFantasma();
@@ -692,6 +693,20 @@ export class ZonaConstruccion extends ExperienciaBase {
         if (this.cupulaCielo) {
             this.cupulaCielo.rotation.y += dt * 0.006;
         }
+    }
+
+    /**
+     * Regla de cámara del Taller de Bloques: órbita libre en tercera persona para apuntar y colocar bloques voxel.
+     * @param {object} [contextoCamara]
+     * @returns {object}
+     */
+    obtenerConfigCamara(contextoCamara = {}) {
+        const base = super.obtenerConfigCamara(contextoCamara);
+        return {
+            ...base,
+            modo: 'tercera_persona_libre',
+            suavizado: 18
+        };
     }
 
     /**

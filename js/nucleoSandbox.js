@@ -3,7 +3,9 @@
  * `RegistroExperiencias` y sistema de portales físicos 3D.
  */
 import { GRAVEDAD_BASE, CATALOGO_ITEMS } from './constantes.js';
+import { CONFIG_CAMARA } from './config.js';
 import {
+    estadoControles,
     estadoJugador,
     estadoSandbox,
     guardarEstadoLocal,
@@ -130,6 +132,36 @@ export class ExperienciaBase {
      */
     alInteractuar(_jugador, _entidad) {
         // Implementado por cada experiencia hija
+    }
+
+    /**
+     * Calcula la configuración de cámara para esta experiencia (heredable y sobrescribible por cada sala).
+     * Por defecto aplica órbita libre en tercera persona.
+     * @param {object} [_contextoCamara]
+     * @returns {{ modo: string, posicionObjetivo: {x:number,y:number,z:number}, puntoMira: {x:number,y:number,z:number}, suavizado: number, fov: number }}
+     */
+    obtenerConfigCamara(_contextoCamara = {}) {
+        const dist = CONFIG_CAMARA.distancia;
+        const pitch = estadoControles.anguloCamaraPitch;
+        const yaw = estadoControles.anguloCamaraY;
+        const distHoriz = Math.cos(pitch) * dist;
+        const offsetY = Math.sin(pitch) * dist;
+
+        const targetX = estadoJugador.posicion.x;
+        const targetY = estadoJugador.posicion.y + 1.65;
+        const targetZ = estadoJugador.posicion.z;
+
+        return {
+            modo: 'tercera_persona_libre',
+            posicionObjetivo: {
+                x: targetX + Math.sin(yaw) * distHoriz,
+                y: targetY + offsetY,
+                z: targetZ + Math.cos(yaw) * distHoriz
+            },
+            puntoMira: { x: targetX, y: targetY, z: targetZ },
+            suavizado: 18,
+            fov: CONFIG_CAMARA.fov
+        };
     }
 
     /**
