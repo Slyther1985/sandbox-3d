@@ -4,7 +4,7 @@
  */
 
 export const URL_WS_LOCAL = 'ws://localhost:8080';
-export const URL_WS_PRODUCCION = 'wss://ca-sandbox-ws.gentlebush.azurecontainerapps.io';
+export const URL_WS_PRODUCCION = 'wss://sandbox-3d-ws.victoriouswater-aacb8bb6.eastus.azurecontainerapps.io';
 
 export const CONFIG_CAMARA = Object.freeze({
     fov: 60,
