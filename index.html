@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Sandbox 3D Multijugador</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%2338bdf8'/%3E%3Cstop offset='100%25' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='%230f172a'/%3E%3Cpolygon points='32,10 52,22 52,44 32,54 12,44 12,22' fill='url(%23g)'/%3E%3Cpolygon points='32,10 52,22 32,32 12,22' fill='%23bae6fd' opacity='0.65'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="css/estilos.css" />
+</head>
+<body>
+    <canvas id="lienzo-3d"></canvas>
+
+    <!-- HUD Minimalista Superior (Píldora Compacta de Estado) -->
+    <header id="hud-superior" class="hud-superior">
+        <div class="hud-bloque-jugador">
+            <span id="hud-apodo" class="hud-apodo">Explorador</span>
+            <span id="hud-nivel" class="hud-nivel">Nv. 1</span>
+            <div class="xp-contenedor" title="Progreso de Nivel">
+                <div id="hud-xp-barra" class="xp-barra"></div>
+            </div>
+        </div>
+
+        <div class="hud-bloque-economia">
+            <span class="hud-chip-monedas">🪙 <strong id="hud-monedas">50</strong></span>
+            <span id="hud-experiencia" class="hud-chip-experiencia">Lobby Central</span>
+            <span id="indicador-estado-red" class="estado-red offline" role="button" tabindex="0" title="Abrir panel de Sala">Offline (Local)</span>
+        </div>
+
+        <button id="btn-audio" type="button" class="btn-hud btn-audio-compacto" title="Alternar Audio">🔊</button>
+    </header>
+
+    <!-- Botón Flotante del Menú Radial Dona (centro-derecha, tecla Tab) -->
+    <button id="btn-menu-dona" type="button" class="btn-menu-dona" aria-label="Abrir Menú Radial" title="Menú Rápido (Tab)">
+        <span class="dona-icono">◎</span>
+        <span class="dona-texto">MENÚ</span>
+    </button>
+
+    <!-- Overlay del Menú Radial Dona SVG (5 sectores) -->
+    <div id="menu-dona-overlay" class="menu-dona-overlay oculto" role="dialog" aria-modal="true" aria-label="Menú Radial">
+        <div class="dona-contenedor">
+            <svg class="dona-svg" viewBox="0 0 320 320" aria-hidden="false">
+                <g id="dona-btn-avatar" class="dona-sector" role="button" tabindex="0">
+                    <path class="dona-arco" d="M 76.2 38.0 A 148 148 0 0 1 243.8 38.0 L 192.8 112.2 A 58 58 0 0 0 127.2 112.2 Z" />
+                    <text class="dona-emoji" x="160" y="52">🎨</text>
+                    <text class="dona-etiqueta" x="160" y="75">Avatar</text>
+                </g>
+                <g id="dona-btn-inventario" class="dona-sector" role="button" tabindex="0">
+                    <path class="dona-arco" d="M 250.1 42.6 A 148 148 0 0 1 301.9 202.0 L 215.6 176.5 A 58 58 0 0 0 195.3 114.0 Z" />
+                    <text class="dona-emoji" x="256" y="122">🎒</text>
+                    <text class="dona-etiqueta" x="256" y="145">Mochila</text>
+                </g>
+                <g id="dona-btn-gestos" class="dona-sector" role="button" tabindex="0">
+                    <path class="dona-arco" d="M 299.5 209.4 A 148 148 0 0 1 163.9 307.9 L 161.5 218.0 A 58 58 0 0 0 214.7 179.4 Z" />
+                    <text class="dona-emoji" x="220" y="236">🕺</text>
+                    <text class="dona-etiqueta" x="220" y="259">Gestos</text>
+                </g>
+                <g id="dona-btn-chat" class="dona-sector" role="button" tabindex="0">
+                    <path class="dona-arco" d="M 156.1 307.9 A 148 148 0 0 1 20.5 209.4 L 105.3 179.4 A 58 58 0 0 0 158.5 218.0 Z" />
+                    <text class="dona-emoji" x="100" y="236">💬</text>
+                    <text class="dona-etiqueta" x="100" y="259">Chat</text>
+                </g>
+                <g id="dona-btn-sala" class="dona-sector" role="button" tabindex="0">
+                    <path class="dona-arco" d="M 18.1 202.0 A 148 148 0 0 1 69.9 42.6 L 124.7 114.0 A 58 58 0 0 0 104.4 176.5 Z" />
+                    <text class="dona-emoji" x="64" y="122">🌐</text>
+                    <text class="dona-etiqueta" x="64" y="145">Sala</text>
+                </g>
+            </svg>
+            <button id="btn-cerrar-dona" type="button" class="btn-cerrar-dona" aria-label="Cerrar menú">✕</button>
+        </div>
+    </div>
+
+    <!-- Subpanel Rápido de Gestos (Emotes) -->
+    <aside id="panel-gestos-dona" class="panel-social oculto" aria-label="Gestos de Avatar">
+        <div class="panel-social-cabecera">
+            <strong>🕺 Gestos Sociales</strong>
+            <button id="btn-cerrar-gestos" type="button" class="btn-cerrar">✕</button>
+        </div>
+        <div class="lista-gestos">
+            <button id="btn-gesto-saludar" type="button" class="btn-hud">👋 Saludar (F)</button>
+            <button id="btn-gesto-bailar" type="button" class="btn-hud">💃 Bailar</button>
+            <button id="btn-gesto-celebrar" type="button" class="btn-hud">🎉 Celebrar</button>
+            <button id="btn-gesto-sentarse" type="button" class="btn-hud">🪑 Sentarse</button>
+        </div>
+    </aside>
+
+    <!-- Subpanel de Chat Rápido 3D -->
+    <aside id="panel-chat-rapido" class="panel-social oculto" aria-label="Chat Rápido">
+        <div class="panel-social-cabecera">
+            <strong>💬 Chat Rápido</strong>
+            <button id="btn-cerrar-chat" type="button" class="btn-cerrar">✕</button>
+        </div>
+        <div class="lista-frases-chat">
+            <button type="button" class="chip-opcion btn-frase-chat" data-frase="¡Hola!">¡Hola!</button>
+            <button type="button" class="chip-opcion btn-frase-chat" data-frase="¡Buen trabajo!">¡Buen trabajo!</button>
+            <button type="button" class="chip-opcion btn-frase-chat" data-frase="¡Ven aquí!">¡Ven aquí!</button>
+            <button type="button" class="chip-opcion btn-frase-chat" data-frase="¡GG!">¡GG!</button>
+            <button type="button" class="chip-opcion btn-frase-chat" data-frase="¡Mira mi construcción!">¡Mira mi construcción!</button>
+        </div>
+        <div class="chat-input-fila">
+            <input id="input-chat-rapido" type="text" maxlength="34" placeholder="Escribe un mensaje corto..." aria-label="Mensaje de chat rápido" />
+            <button id="btn-enviar-chat" type="button" class="btn-primario">Enviar</button>
+        </div>
+    </aside>
+
+    <!-- Panel Multijugador y Teletransporte (abierto desde Menú Dona -> Sala) -->
+    <aside id="panel-red" class="panel-red oculto" aria-label="Sala y Portales">
+        <div class="panel-red-cabecera">
+            <strong>🌐 Sala y Portales</strong>
+            <div class="panel-red-meta">
+                <span id="contador-jugadores" class="contador-jugadores">1 jugador</span>
+                <button id="btn-cerrar-red" type="button" class="btn-cerrar">✕</button>
+            </div>
+        </div>
+        <div class="panel-red-controles">
+            <input id="input-apodo" type="text" maxlength="18" placeholder="Apodo" aria-label="Apodo" />
+            <input id="input-codigo-sala" type="text" maxlength="20" placeholder="SALA-PUBLICA" aria-label="Código de sala" />
+            <div class="panel-red-botones">
+                <button id="btn-conectar-sala" type="button" class="btn-primario">Conectar</button>
+                <button id="btn-desconectar-sala" type="button" class="btn-secundario">Salir</button>
+            </div>
+        </div>
+        <div class="panel-warp-rapido">
+            <button id="btn-warp-lobby" type="button" class="btn-hud">🏝️ Ir a Lobby</button>
+            <button id="btn-warp-construccion" type="button" class="btn-hud">🧱 Taller Voxel</button>
+            <button id="btn-warp-karts" type="button" class="btn-hud">🏎️ Arena Karts</button>
+            <button id="btn-warp-tetris" type="button" class="btn-hud">🕹️ Sala Tetris</button>
+        </div>
+        <div class="ayuda-teclas">
+            <span>WASD: Mover</span> · <span>Espacio: Saltar</span> · <span>Tab: Menú</span> · <span>E: Interactuar</span>
+        </div>
+    </aside>
+
+    <!-- Aviso de Interacción Contextual -->
+    <div id="aviso-interaccion" class="aviso-interaccion oculto">[E] Interactuar</div>
+
+    <!-- Contenedor de Notificaciones -->
+    <div id="contenedor-notificaciones" class="contenedor-notificaciones"></div>
+
+    <!-- Disparador Compacto y Popover Colapsable de Bloques Voxel (visible en ZonaConstruccion) -->
+    <button id="btn-toggle-bloques" type="button" class="btn-toggle-bloques oculto" aria-expanded="false" title="Abrir selector de bloques (Tecla B)">
+        <span id="muestra-bloque-activo" class="color-bloque-muestra"></span>
+        <span id="texto-btn-bloques">🧱 Bloques · Colocar</span>
+    </button>
+
+    <section id="popover-bloques" class="popover-bloques oculto" aria-label="Selector de bloques voxel">
+        <div id="hotbar-bloques" class="hotbar-bloques">
+            <div id="lista-bloques-hotbar" class="lista-bloques-hotbar"></div>
+            <div class="hotbar-acciones">
+                <button id="btn-modo-construccion" type="button" class="btn-hotbar">🧱 Colocar</button>
+                <button id="btn-guardar-parcela" type="button" class="btn-hotbar btn-primario">💾 Guardar</button>
+                <button id="btn-limpiar-parcela" type="button" class="btn-hotbar btn-peligro">🗑️ Limpiar</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Telemetría de Carrera y Ranking (visible en ArenaTurboKarts) -->
+    <section id="hud-karts" class="hud-karts oculto" aria-label="Telemetría de Kart">
+        <div class="kart-telemetria-chips">
+            <span id="kart-velocidad" class="kart-chip">0 KM/H</span>
+            <span id="kart-checkpoints" class="kart-chip">Vuelta 1/2 · CP: 0/5</span>
+            <span id="kart-tiempo-actual" class="kart-chip">00:00.0</span>
+            <span id="kart-mejor-vuelta" class="kart-chip">Mejor: --:--.-</span>
+        </div>
+        <div id="lista-ranking-karts" class="lista-ranking-karts"></div>
+    </section>
+
+    <div id="banner-conteo-karts" class="banner-conteo-karts oculto"></div>
+
+    <!-- Disparador Compacto y Popover Lateral Garaje Kart (visible en ArenaTurboKarts) -->
+    <button id="btn-toggle-kart" type="button" class="btn-toggle-kart oculto" aria-expanded="false" title="Abrir Garaje Kart (Tecla G)">
+        🏎️ Garaje Kart (120 pts)
+    </button>
+
+    <section id="popover-kart" class="popover-kart oculto" aria-label="Personalizador de Kart">
+        <div class="kart-garaje-panel">
+            <div class="kart-garaje-stats">
+                <div class="stat-fila">
+                    <span>VEL</span>
+                    <div class="stat-pista"><div id="barra-stat-vel" class="stat-relleno"></div></div>
+                </div>
+                <div class="stat-fila">
+                    <span>ACEL</span>
+                    <div class="stat-pista"><div id="barra-stat-acel" class="stat-relleno"></div></div>
+                </div>
+                <div class="stat-fila">
+                    <span>CTRL</span>
+                    <div class="stat-pista"><div id="barra-stat-ctrl" class="stat-relleno"></div></div>
+                </div>
+            </div>
+            <div class="kart-garaje-grupos">
+                <div class="kart-grupo">
+                    <span>Chasis (120 pts)</span>
+                    <div id="selector-kart-chasis" class="selector-chips"></div>
+                </div>
+                <div class="kart-grupo">
+                    <span>Ruedas</span>
+                    <div id="selector-kart-ruedas" class="selector-chips"></div>
+                </div>
+                <div class="kart-grupo">
+                    <span>Alerón</span>
+                    <div id="selector-kart-aleron" class="selector-chips"></div>
+                </div>
+                <div class="kart-grupo">
+                    <span>Pintura</span>
+                    <div id="selector-kart-color" class="selector-colores"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Modal de Inventario / Tienda -->
+    <section id="modal-inventario" class="modal-inventario oculto" role="dialog" aria-modal="true" aria-label="Mochila y Tienda">
+        <div class="modal-contenido">
+            <div class="modal-cabecera">
+                <h2>Mochila y Tienda de Accesorios</h2>
+                <button id="btn-cerrar-inventario" type="button" class="btn-cerrar">✕</button>
+            </div>
+            <div id="lista-inventario" class="lista-inventario"></div>
+        </div>
+    </section>
+
+    <!-- Estudio de Personalización de Avatar en Vivo (Panel lateral no bloqueante) -->
+    <section id="modal-avatar" class="modal-avatar-drawer oculto" role="dialog" aria-modal="false" aria-label="Estudio de Avatar">
+        <div class="modal-contenido modal-avatar-contenido">
+            <div class="modal-cabecera">
+                <div>
+                    <h2>Estudio de Avatar 3D</h2>
+                    <span class="subtitulo-preview">Arrastra el personaje en 3D para rotar</span>
+                </div>
+                <button id="btn-cerrar-avatar" type="button" class="btn-cerrar">✕</button>
+            </div>
+            <div class="avatar-editor-grid">
+                <div class="avatar-seccion">
+                    <h3>Tono de Piel</h3>
+                    <div id="selector-piel" class="selector-colores"></div>
+                </div>
+                <div class="avatar-seccion">
+                    <h3>Color de Torso</h3>
+                    <div id="selector-torso" class="selector-colores"></div>
+                </div>
+                <div class="avatar-seccion">
+                    <h3>Color de Piernas</h3>
+                    <div id="selector-piernas" class="selector-colores"></div>
+                </div>
+                <div class="avatar-seccion">
+                    <h3>Expresión Facial</h3>
+                    <div id="selector-rostro" class="selector-chips"></div>
+                </div>
+                <div class="avatar-seccion">
+                    <h3>Accesorios Desbloqueados</h3>
+                    <div id="selector-accesorios-avatar" class="selector-chips"></div>
+                </div>
+                <div class="avatar-seccion">
+                    <h3>Respaldo de Perfil (Base64)</h3>
+                    <div class="perfil-transferencia">
+                        <input id="input-codigo-perfil" type="text" placeholder="Pega aquí tu código Base64 para importar" aria-label="Código de perfil Base64" />
+                        <div class="perfil-botones">
+                            <button id="btn-exportar-perfil" type="button" class="btn-primario">Exportar</button>
+                            <button id="btn-importar-perfil" type="button" class="btn-secundario">Importar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Overlay 100% Pantalla Completa para Tetris Arcade (Primera Persona) -->
+    <section id="pantalla-tetris-fullscreen" class="pantalla-tetris-fullscreen oculto" aria-label="Tetris Arcade en Pantalla Completa">
+        <div class="tetris-barra-superior">
+            <div class="tetris-titulo">
+                <strong>🕹️ TETRIS ARCADE 10×20</strong>
+                <span id="tetris-butaca-actual" class="tetris-badge-butaca">Butaca 1</span>
+            </div>
+            <button id="btn-tetris-levantarse" type="button" class="btn-peligro">Levantarse (Esc)</button>
+        </div>
+
+        <div class="tetris-layout">
+            <aside class="tetris-panel-lateral">
+                <div class="tetris-tarjeta">
+                    <span class="tetris-etiqueta">HOLD (C / Shift)</span>
+                    <canvas id="canvas-tetris-hold" width="104" height="84"></canvas>
+                </div>
+                <div class="tetris-tarjeta tetris-metricas">
+                    <div><span>PUNTAJE</span><strong id="tetris-puntaje">0</strong></div>
+                    <div><span>NIVEL</span><strong id="tetris-nivel">1</strong></div>
+                    <div><span>LÍNEAS</span><strong id="tetris-lineas">0</strong></div>
+                    <div><span>RÉCORD</span><strong id="tetris-mejor-puntaje">0</strong></div>
+                </div>
+                <div class="tetris-tarjeta tetris-tabla-no-lineal">
+                    <span class="tetris-etiqueta">BONO NO LINEAL</span>
+                    <small>1L: 100×Nv · 2L: 300×Nv</small>
+                    <small>3L: 500×Nv · 4L TETRIS: 1200×Nv</small>
+                </div>
+            </aside>
+
+            <div class="tetris-centro-tablero">
+                <div id="overlay-tetris-gameover" class="tetris-gameover-overlay oculto">
+                    <h3>GAME OVER</h3>
+                    <p>Tu récord y recompensas se han guardado.</p>
+                    <div class="tetris-gameover-botones">
+                        <button id="btn-tetris-reiniciar" type="button" class="btn-primario">Jugar de Nuevo</button>
+                        <button type="button" class="btn-secundario" data-accion-tetris="levantarse">Levantarse</button>
+                    </div>
+                </div>
+            </div>
+
+            <aside class="tetris-panel-lateral">
+                <div class="tetris-tarjeta">
+                    <span class="tetris-etiqueta">SIGUIENTES</span>
+                    <canvas id="canvas-tetris-siguientes" width="104" height="216"></canvas>
+                </div>
+                <div class="tetris-tarjeta">
+                    <span class="tetris-etiqueta">TOP 5 SALA</span>
+                    <div id="lista-ranking-tetris" class="lista-ranking-tetris"></div>
+                </div>
+            </aside>
+        </div>
+
+        <div class="tetris-controles-tactiles">
+            <button id="btn-tetris-izq" type="button" class="btn-tetris-tactil">◀</button>
+            <button id="btn-tetris-bajar" type="button" class="btn-tetris-tactil">▼ Suave</button>
+            <button id="btn-tetris-rotar" type="button" class="btn-tetris-tactil btn-tetris-acento">↻ Rotar</button>
+            <button id="btn-tetris-caida" type="button" class="btn-tetris-tactil btn-tetris-acento">⤓ Caída</button>
+            <button id="btn-tetris-hold" type="button" class="btn-tetris-tactil">Hold</button>
+            <button id="btn-tetris-der" type="button" class="btn-tetris-tactil">▶</button>
+        </div>
+    </section>
+
+    <!-- Controles Táctiles Responsivos -->
+    <div id="controles-moviles" class="controles-moviles">
+        <div id="zona-joystick" class="zona-joystick">
+            <div id="palanca-joystick" class="palanca-joystick"></div>
+        </div>
+        <div class="botones-moviles-derecha">
+            <button id="btn-movil-sprint" type="button" class="btn-movil btn-sprint">⚡</button>
+            <button id="btn-movil-accion" type="button" class="btn-movil btn-accion">E</button>
+            <button id="btn-movil-saltar" type="button" class="btn-movil btn-saltar">▲</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
