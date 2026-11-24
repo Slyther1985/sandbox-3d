@@ -34,6 +34,9 @@ const salas = new Map();
 /** @type {Map<string, Map<string, { x: number, y: number, z: number, tipo: string }>>} */
 const parcelasSalas = new Map();
 
+/** @type {Map<string, Set<string>>} */
+const parrillasKartsSalas = new Map();
+
 /** @type {Map<string, object>} */
 const perfiles = new Map();
 
@@ -214,6 +217,18 @@ function obtenerMapaParcelaSala(codigoSala) {
  */
 function obtenerListaBloquesSala(codigoSala) {
     return Array.from(obtenerMapaParcelaSala(codigoSala).values());
+}
+
+/**
+ * Obtiene (o crea) el conjunto de jugadores activos en la parrilla de salida de karts de una sala.
+ * @param {string} codigoSala
+ * @returns {Set<string>}
+ */
+function obtenerParrillaSala(codigoSala) {
+    if (!parrillasKartsSalas.has(codigoSala)) {
+        parrillasKartsSalas.set(codigoSala, new Set());
+    }
+    return parrillasKartsSalas.get(codigoSala);
 }
 
 /**
@@ -670,6 +685,28 @@ wss.on('connection', (ws) => {
             const slotParrilla =
                 typeof actual.datos.slotParrilla === 'number' ? actual.datos.slotParrilla : 0;
             actual.datos = { ...actual.datos, ...msg.jugador, id: jugadorId, slotParrilla };
+
+            if (actual.datos.experienciaActiva !== 'karts') {
+                const parrilla = parrillasKartsSalas.get(salaActual);
+                if (parrilla && parrilla.delete(jugadorId) && parrilla.size === 0) {
+                    difundirASala(salaActual, {
+                        tipo: 'evento_experiencia',
+                        origenId: jugadorId,
+                        experienciaId: 'karts',
+                        subtipo: 'cancelar_salida_kart',
+                        accion: 'cancelar_salida_kart',
+                        datos: {
+                            accion: 'cancelar_salida_kart',
+                            jugadorId,
+                            restantesEnParrilla: 0,
+                            cancelarConteo: true,
+                            servidorAutoritativo: true
+                        },
+                        timestamp: Date.now()
+                    });
+                }
+            }
+
             difundirASala(salaActual, {
                 tipo: 'jugador_actualizado',
                 jugador: actual.datos
@@ -677,7 +714,7 @@ wss.on('connection', (ws) => {
             return;
         }
 
-        // Retransmisión genérica + persistencia autoritativa de parcela voxel
+        // Retransmisión genérica + persistencia autoritativa de parcela voxel + parrilla karts
         if (msg.tipo === 'evento_experiencia') {
             const datos = msg.datos && typeof msg.datos === 'object' ? msg.datos : {};
             const accion = msg.accion || datos.accion || msg.subtipo || 'generico';
@@ -685,6 +722,36 @@ wss.on('connection', (ws) => {
             if (accion === 'pedir_estado_parcela') {
                 enviarEstadoParcelaCompleto(ws, salaActual);
                 return;
+            }
+
+            if (msg.experienciaId === 'karts') {
+                if (accion === 'iniciar_conteo_carrera' || accion === 'unirse_parrilla_kart') {
+                    obtenerParrillaSala(salaActual).add(jugadorId);
+                } else if (accion === 'iniciar_ceremonia_podio') {
+                    parrillasKartsSalas.get(salaActual)?.clear();
+                } else if (accion === 'cancelar_salida_kart') {
+                    const parrilla = obtenerParrillaSala(salaActual);
+                    parrilla.delete(jugadorId);
+                    const restantes = parrilla.size;
+                    const cancelarConteo = restantes === 0;
+                    difundirASala(salaActual, {
+                        tipo: 'evento_experiencia',
+                        origenId: jugadorId,
+                        experienciaId: 'karts',
+                        subtipo: 'cancelar_salida_kart',
+                        accion: 'cancelar_salida_kart',
+                        datos: {
+                            ...datos,
+                            accion: 'cancelar_salida_kart',
+                            jugadorId,
+                            restantesEnParrilla: restantes,
+                            cancelarConteo,
+                            servidorAutoritativo: cancelarConteo
+                        },
+                        timestamp: Date.now()
+                    }, cancelarConteo ? null : jugadorId);
+                    return;
+                }
             }
 
             if (msg.experienciaId === 'construccion') {
@@ -766,10 +833,31 @@ wss.on('connection', (ws) => {
 
         const saliente = sala.get(jugadorId);
         sala.delete(jugadorId);
+        const parrilla = parrillasKartsSalas.get(salaActual);
+        const estabaEnParrilla = parrilla ? parrilla.delete(jugadorId) : false;
 
         if (sala.size === 0) {
             salas.delete(salaActual);
+            parrillasKartsSalas.delete(salaActual);
             return;
+        }
+
+        if (estabaEnParrilla && parrilla && parrilla.size === 0) {
+            difundirASala(salaActual, {
+                tipo: 'evento_experiencia',
+                origenId: jugadorId,
+                experienciaId: 'karts',
+                subtipo: 'cancelar_salida_kart',
+                accion: 'cancelar_salida_kart',
+                datos: {
+                    accion: 'cancelar_salida_kart',
+                    jugadorId,
+                    restantesEnParrilla: 0,
+                    cancelarConteo: true,
+                    servidorAutoritativo: true
+                },
+                timestamp: Date.now()
+            });
         }
 
         let nuevoAnfitrionId = null;

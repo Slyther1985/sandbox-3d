@@ -31,7 +31,7 @@ export class LobbyCentral extends ExperienciaBase {
             colorPortal: 0x38bdf8,
             posicionPortal: { x: 0, y: 0, z: 0 },
             minJugadores: 1,
-            spawnJugador: { x: 0, y: 0.5, z: 24 }
+            spawnJugador: { x: 0, y: 0.5, z: 26 }
         });
 
         this.monedas = [];
@@ -167,7 +167,7 @@ export class LobbyCentral extends ExperienciaBase {
 
         const angDiag = Math.atan2(30, 26);
         const tramos = [
-            { x: 0, z: 31, rotY: 0, ancho: 5.4, largo: 26, arcos: [22, 31, 40] },
+            { x: 0, z: 36, rotY: 0, ancho: 5.4, largo: 36, arcos: [44, 52] },
             { x: 0, z: -25.5, rotY: 0, ancho: 5.6, largo: 17, arcos: [-21, -28] },
             { x: -21.2, z: -18.4, rotY: angDiag, ancho: 5.0, largo: 24, arcos: [] },
             { x: 21.2, z: -18.4, rotY: -angDiag, ancho: 5.0, largo: 24, arcos: [] }
@@ -1247,8 +1247,8 @@ export class LobbyCentral extends ExperienciaBase {
     }
 
     /**
-     * Regla de cámara del Lobby Central: seguimiento suave en tercera persona detrás de la espalda,
-     * permitiendo inspección orbital manual temporal al arrastrar el puntero.
+     * Regla de cámara del Lobby Central: siempre se alinea suavemente detrás de la espalda
+     * del jugador al desplazarse en cualquier dirección o soltar el arrastre manual.
      * @param {object} [contextoCamara]
      * @returns {object}
      */
@@ -1257,37 +1257,23 @@ export class LobbyCentral extends ExperienciaBase {
         const teclas = estadoControles.teclas;
         const joy = estadoControles.joystick;
 
-        const avanzando =
-            teclas.has('KeyW') ||
-            teclas.has('ArrowUp') ||
-            (joy.activo && joy.y > 0.15);
         const retrocediendo =
             teclas.has('KeyS') ||
             teclas.has('ArrowDown') ||
-            (joy.activo && joy.y < -0.2);
-        const girando =
-            teclas.has('KeyA') ||
-            teclas.has('KeyD') ||
-            teclas.has('ArrowLeft') ||
-            teclas.has('ArrowRight') ||
-            (joy.activo && Math.abs(joy.x) > 0.2);
+            (joy.activo && joy.y < -0.25);
 
-        if (!estadoControles.orbitaManualActiva && estadoControles.tiempoOrbitaManual > 0) {
-            estadoControles.tiempoOrbitaManual = Math.max(
-                0,
-                estadoControles.tiempoOrbitaManual - dt * (avanzando ? 2.2 : 1.0)
-            );
-        }
-
-        const enMovimiento = !estadoControles.pantallaBienvenidaActiva && (avanzando || (girando && !retrocediendo));
-        if (!estadoControles.orbitaManualActiva && estadoControles.tiempoOrbitaManual <= 0 && enMovimiento) {
-            const yawObjetivo = estadoJugador.rotacion + Math.PI;
+        if (!estadoControles.orbitaManualActiva && !estadoControles.pantallaBienvenidaActiva) {
+            estadoControles.tiempoOrbitaManual = 0;
+            const rotJugador = typeof estadoJugador.rotacionY === 'number'
+                ? estadoJugador.rotacionY
+                : estadoJugador.rotacion || 0;
+            const yawObjetivo = rotJugador + Math.PI;
             let diff = yawObjetivo - estadoControles.anguloCamaraY;
             while (diff > Math.PI) diff -= Math.PI * 2;
             while (diff < -Math.PI) diff += Math.PI * 2;
-            const tasaAlineacion = avanzando ? 3.2 : 1.8;
+            const tasaAlineacion = retrocediendo ? 2.2 : 3.8;
             estadoControles.anguloCamaraY += diff * Math.min(1, dt * tasaAlineacion);
-            estadoControles.anguloCamaraPitch += (0.34 - estadoControles.anguloCamaraPitch) * Math.min(1, dt * 1.4);
+            estadoControles.anguloCamaraPitch += (0.34 - estadoControles.anguloCamaraPitch) * Math.min(1, dt * 2.2);
         }
 
         const dist = CONFIG_CAMARA.distancia * 0.94;

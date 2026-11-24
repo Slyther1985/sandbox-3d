@@ -15,71 +15,26 @@
 <body>
     <canvas id="lienzo-3d"></canvas>
 
-    <!-- HUD Minimalista Superior (Píldora Compacta de Estado) -->
-    <header id="hud-superior" class="hud-superior">
-        <div class="hud-bloque-jugador">
-            <span id="hud-apodo" class="hud-apodo">Explorador</span>
-            <span id="hud-nivel" class="hud-nivel">Nv. 1</span>
-            <div class="xp-contenedor" title="Progreso de Nivel">
-                <div id="hud-xp-barra" class="xp-barra"></div>
-            </div>
+    <!-- Barra Superior Minimalista Estilo Roblox (Fila Única en Esquinas, Centro Despejado) -->
+    <header id="hud-superior" class="hud-barra-roblox">
+        <div class="hud-esquina-izq">
+            <button id="btn-hud-menu" type="button" class="btn-hud-circular" title="Menú Principal (Tab)" aria-label="Abrir Menú Principal">☰</button>
+            <button id="btn-hud-chat" type="button" class="btn-hud-circular" title="Chat Rápido" aria-label="Abrir Chat Rápido">💬</button>
+            <button id="btn-hud-gestos" type="button" class="btn-hud-circular" title="Gestos y Emotes" aria-label="Abrir Gestos Sociales">☺</button>
         </div>
 
-        <div class="hud-bloque-economia">
+        <div class="hud-esquina-der">
             <span class="hud-chip-monedas">🪙 <strong id="hud-monedas">50</strong></span>
-            <span id="hud-experiencia" class="hud-chip-experiencia">Lobby Central</span>
-            <span id="indicador-estado-red" class="estado-red offline" role="button" tabindex="0" title="Abrir panel de Sala">Offline (Local)</span>
+            <span id="hud-nivel" class="hud-nivel">Nv. 1</span>
+            <button id="btn-musica" type="button" class="btn-hud-compacto" title="Alternar Música 16-Bit (M)" aria-label="Alternar Música 16-Bit">🎵</button>
+            <button id="btn-pantalla-completa" type="button" class="btn-hud-compacto" title="Pantalla Completa" aria-label="Alternar Pantalla Completa">⛶</button>
         </div>
-
-        <button id="btn-audio" type="button" class="btn-hud btn-audio-compacto" title="Alternar Audio">🔊</button>
-        <button id="btn-musica" type="button" class="btn-hud btn-audio-compacto" title="Alternar Música 16-Bit (M)" aria-label="Alternar Música 16-Bit">🎵</button>
-        <button id="btn-pantalla-completa" type="button" class="btn-hud btn-audio-compacto" title="Pantalla Completa" aria-label="Alternar Pantalla Completa">⛶</button>
     </header>
 
-    <!-- Botón Flotante del Menú Radial Dona (centro-derecha, tecla Tab) -->
-    <button id="btn-menu-dona" type="button" class="btn-menu-dona" aria-label="Abrir Menú Radial" title="Menú Rápido (Tab)">
-        <span class="dona-icono">◎</span>
-        <span class="dona-texto">MENÚ</span>
-    </button>
-
-    <!-- Overlay del Menú Radial Dona SVG (5 sectores) -->
-    <div id="menu-dona-overlay" class="menu-dona-overlay oculto" role="dialog" aria-modal="true" aria-label="Menú Radial">
-        <div class="dona-contenedor">
-            <svg class="dona-svg" viewBox="0 0 320 320" aria-hidden="false">
-                <g id="dona-btn-avatar" class="dona-sector" role="button" tabindex="0">
-                    <path class="dona-arco" d="M 76.2 38.0 A 148 148 0 0 1 243.8 38.0 L 192.8 112.2 A 58 58 0 0 0 127.2 112.2 Z" />
-                    <text class="dona-emoji" x="160" y="52">🎨</text>
-                    <text class="dona-etiqueta" x="160" y="75">Avatar</text>
-                </g>
-                <g id="dona-btn-inventario" class="dona-sector" role="button" tabindex="0">
-                    <path class="dona-arco" d="M 250.1 42.6 A 148 148 0 0 1 301.9 202.0 L 215.6 176.5 A 58 58 0 0 0 195.3 114.0 Z" />
-                    <text class="dona-emoji" x="256" y="122">🎒</text>
-                    <text class="dona-etiqueta" x="256" y="145">Mochila</text>
-                </g>
-                <g id="dona-btn-gestos" class="dona-sector" role="button" tabindex="0">
-                    <path class="dona-arco" d="M 299.5 209.4 A 148 148 0 0 1 163.9 307.9 L 161.5 218.0 A 58 58 0 0 0 214.7 179.4 Z" />
-                    <text class="dona-emoji" x="220" y="236">🕺</text>
-                    <text class="dona-etiqueta" x="220" y="259">Gestos</text>
-                </g>
-                <g id="dona-btn-chat" class="dona-sector" role="button" tabindex="0">
-                    <path class="dona-arco" d="M 156.1 307.9 A 148 148 0 0 1 20.5 209.4 L 105.3 179.4 A 58 58 0 0 0 158.5 218.0 Z" />
-                    <text class="dona-emoji" x="100" y="236">💬</text>
-                    <text class="dona-etiqueta" x="100" y="259">Chat</text>
-                </g>
-                <g id="dona-btn-sala" class="dona-sector" role="button" tabindex="0">
-                    <path class="dona-arco" d="M 18.1 202.0 A 148 148 0 0 1 69.9 42.6 L 124.7 114.0 A 58 58 0 0 0 104.4 176.5 Z" />
-                    <text class="dona-emoji" x="64" y="122">🌐</text>
-                    <text class="dona-etiqueta" x="64" y="145">Sala</text>
-                </g>
-            </svg>
-            <button id="btn-cerrar-dona" type="button" class="btn-cerrar-dona" aria-label="Cerrar menú">✕</button>
-        </div>
-    </div>
-
-    <!-- Subpanel Rápido de Gestos (Emotes) -->
-    <aside id="panel-gestos-dona" class="panel-social oculto" aria-label="Gestos de Avatar">
+    <!-- Subpanel Compacto de Gestos Sociales -->
+    <aside id="panel-gestos" class="panel-social-roblox oculto" aria-label="Gestos de Avatar">
         <div class="panel-social-cabecera">
-            <strong>🕺 Gestos Sociales</strong>
+            <strong>☺ Gestos</strong>
             <button id="btn-cerrar-gestos" type="button" class="btn-cerrar">✕</button>
         </div>
         <div class="lista-gestos">
@@ -90,8 +45,8 @@
         </div>
     </aside>
 
-    <!-- Subpanel de Chat Rápido 3D -->
-    <aside id="panel-chat-rapido" class="panel-social oculto" aria-label="Chat Rápido">
+    <!-- Subpanel Compacto de Chat Rápido 3D -->
+    <aside id="panel-chat-rapido" class="panel-social-roblox oculto" aria-label="Chat Rápido">
         <div class="panel-social-cabecera">
             <strong>💬 Chat Rápido</strong>
             <button id="btn-cerrar-chat" type="button" class="btn-cerrar">✕</button>
@@ -104,43 +59,138 @@
             <button type="button" class="chip-opcion btn-frase-chat" data-frase="¡Mira mi construcción!">¡Mira mi construcción!</button>
         </div>
         <div class="chat-input-fila">
-            <input id="input-chat-rapido" type="text" maxlength="34" placeholder="Escribe un mensaje corto..." aria-label="Mensaje de chat rápido" />
+            <input id="input-chat-rapido" type="text" maxlength="34" placeholder="Mensaje corto..." aria-label="Mensaje de chat rápido" />
             <button id="btn-enviar-chat" type="button" class="btn-primario">Enviar</button>
         </div>
     </aside>
 
-    <!-- Panel Multijugador y Teletransporte (abierto desde Menú Dona -> Sala) -->
-    <aside id="panel-red" class="panel-red oculto" aria-label="Sala y Portales">
-        <div class="panel-red-cabecera">
-            <strong>🌐 Sala y Portales</strong>
-            <div class="panel-red-meta">
-                <span id="contador-jugadores" class="contador-jugadores">1 jugador</span>
-                <button id="btn-cerrar-red" type="button" class="btn-cerrar">✕</button>
+    <!-- Menú Principal Unificado con 4 Pestañas (Portales y Sala, Avatar 3D, Mochila/Tienda, Jugador) -->
+    <section id="menu-principal-unificado" class="menu-principal-unificado oculto" role="dialog" aria-modal="false" aria-label="Menú Principal">
+        <div class="menu-unificado-tarjeta">
+            <div class="menu-unificado-cabecera">
+                <div class="menu-unificado-tabs" role="tablist">
+                    <button id="tab-menu-sala" type="button" class="tab-menu-unificado activo" role="tab" aria-selected="true">🌐 Portales y Sala</button>
+                    <button id="tab-menu-avatar" type="button" class="tab-menu-unificado" role="tab" aria-selected="false">🎨 Avatar 3D</button>
+                    <button id="tab-menu-mochila" type="button" class="tab-menu-unificado" role="tab" aria-selected="false">🎒 Mochila / Tienda</button>
+                    <button id="tab-menu-jugador" type="button" class="tab-menu-unificado" role="tab" aria-selected="false">👤 Jugador</button>
+                </div>
+                <button id="btn-cerrar-menu-unificado" type="button" class="btn-cerrar" aria-label="Cerrar menú">✕</button>
+            </div>
+
+            <div class="menu-unificado-cuerpo">
+                <!-- Pestaña 1: Portales y Sala Multijugador -->
+                <div id="panel-menu-sala" class="tab-panel-unificado">
+                    <div class="sala-estado-fila">
+                        <span id="indicador-estado-red" class="estado-red offline">Offline (Local)</span>
+                        <span id="contador-jugadores" class="contador-jugadores">1 jugador</span>
+                        <span id="hud-experiencia" class="hud-chip-experiencia">Parque Estelar (Lobby)</span>
+                    </div>
+
+                    <div class="panel-red-controles">
+                        <div class="fila-campos-red">
+                            <input id="input-apodo" type="text" maxlength="18" placeholder="Apodo" aria-label="Apodo" />
+                            <input id="input-codigo-sala" type="text" maxlength="20" placeholder="SALA-PUBLICA" aria-label="Código de sala" />
+                        </div>
+                        <div class="panel-red-botones">
+                            <button id="btn-conectar-sala" type="button" class="btn-primario">Conectar a Sala</button>
+                            <button id="btn-desconectar-sala" type="button" class="btn-secundario">Modo Offline</button>
+                        </div>
+                    </div>
+
+                    <h3 class="subtitulo-seccion">Viaje Rápido entre Mundos</h3>
+                    <div class="panel-warp-rapido">
+                        <button id="btn-warp-lobby" type="button" class="btn-hud">🎡 Parque Central</button>
+                        <button id="btn-warp-construccion" type="button" class="btn-hud">🧱 Taller Voxel</button>
+                        <button id="btn-warp-karts" type="button" class="btn-hud">🏎️ Turbo Karts GP</button>
+                        <button id="btn-warp-tetris" type="button" class="btn-hud">🕹️ Tetris Arcade</button>
+                    </div>
+                    <div class="ayuda-teclas">
+                        <span>WASD / Joystick: Mover</span> · <span>Espacio: Saltar</span> · <span>Tab: Menú</span> · <span>E: Interactuar</span>
+                    </div>
+                </div>
+
+                <!-- Pestaña 2: Estudio de Avatar 3D en Vivo (Panel acoplado lateral) -->
+                <div id="panel-menu-avatar" class="tab-panel-unificado oculto">
+                    <span class="subtitulo-preview">Arrastra el personaje en la vista 3D para rotarlo</span>
+                    <div class="avatar-editor-grid">
+                        <div class="avatar-seccion">
+                            <h3>Tono de Piel</h3>
+                            <div id="selector-piel" class="selector-colores"></div>
+                        </div>
+                        <div class="avatar-seccion">
+                            <h3>Color de Torso</h3>
+                            <div id="selector-torso" class="selector-colores"></div>
+                        </div>
+                        <div class="avatar-seccion">
+                            <h3>Color de Piernas</h3>
+                            <div id="selector-piernas" class="selector-colores"></div>
+                        </div>
+                        <div class="avatar-seccion">
+                            <h3>Expresión Facial</h3>
+                            <div id="selector-rostro" class="selector-chips"></div>
+                        </div>
+                        <div class="avatar-seccion">
+                            <h3>Accesorios Desbloqueados</h3>
+                            <div id="selector-accesorios-avatar" class="selector-chips"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pestaña 3: Mochila y Tienda -->
+                <div id="panel-menu-mochila" class="tab-panel-unificado oculto">
+                    <div class="mochila-barra-filtros">
+                        <div id="filtros-mochila" class="filtros-mochila" role="tablist" aria-label="Filtrar objetos de mochila">
+                            <button type="button" class="chip-filtro-mochila activo" data-filtro-mochila="todos">Todos</button>
+                            <button type="button" class="chip-filtro-mochila" data-filtro-mochila="cabeza">🎩 Cabeza</button>
+                            <button type="button" class="chip-filtro-mochila" data-filtro-mochila="espalda">🎒 Espalda</button>
+                            <button type="button" class="chip-filtro-mochila" data-filtro-mochila="aura">✨ Aura</button>
+                            <button type="button" class="chip-filtro-mochila" data-filtro-mochila="equipados">✓ Equipados</button>
+                        </div>
+                        <span id="contador-mochila" class="contador-mochila">1 / 6</span>
+                    </div>
+                    <div id="lista-inventario" class="lista-inventario"></div>
+                </div>
+
+                <!-- Pestaña 4: Resumen de Jugador, Audio SFX y Cambio de Perfil -->
+                <div id="panel-menu-jugador" class="tab-panel-unificado oculto">
+                    <div class="tarjeta-resumen-jugador">
+                        <div class="resumen-cabecera">
+                            <div>
+                                <strong id="hud-apodo" class="hud-apodo">Explorador</strong>
+                                <div class="xp-contenedor xp-jugador" title="Progreso de Nivel">
+                                    <div id="hud-xp-barra" class="xp-barra"></div>
+                                </div>
+                            </div>
+                            <div class="resumen-acciones-audio">
+                                <button id="btn-audio" type="button" class="btn-hud" title="Alternar Efectos de Sonido">🔊 SFX</button>
+                                <button id="btn-cambiar-jugador" type="button" class="btn-secundario">🔄 Cambiar Jugador</button>
+                            </div>
+                        </div>
+                        <div class="resumen-records">
+                            <div class="record-caja"><span>🏎️ Mejor Vuelta Kart</span><strong id="jugador-record-kart">--:--.-</strong></div>
+                            <div class="record-caja"><span>🕹️ Récord Tetris 3D</span><strong id="jugador-record-tetris">0</strong></div>
+                        </div>
+                    </div>
+
+                    <div class="avatar-seccion">
+                        <h3>Respaldo de Perfil (Base64)</h3>
+                        <div class="perfil-transferencia">
+                            <input id="input-codigo-perfil" type="text" placeholder="Pega aquí tu código Base64 para importar" aria-label="Código de perfil Base64" />
+                            <div class="perfil-botones">
+                                <button id="btn-exportar-perfil" type="button" class="btn-primario">Exportar</button>
+                                <button id="btn-importar-perfil" type="button" class="btn-secundario">Importar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="panel-red-controles">
-            <input id="input-apodo" type="text" maxlength="18" placeholder="Apodo" aria-label="Apodo" />
-            <input id="input-codigo-sala" type="text" maxlength="20" placeholder="SALA-PUBLICA" aria-label="Código de sala" />
-            <div class="panel-red-botones">
-                <button id="btn-conectar-sala" type="button" class="btn-primario">Conectar</button>
-                <button id="btn-desconectar-sala" type="button" class="btn-secundario">Salir</button>
-            </div>
-        </div>
-        <div class="panel-warp-rapido">
-            <button id="btn-warp-lobby" type="button" class="btn-hud">🏝️ Ir a Lobby</button>
-            <button id="btn-warp-construccion" type="button" class="btn-hud">🧱 Taller Voxel</button>
-            <button id="btn-warp-karts" type="button" class="btn-hud">🏎️ Arena Karts</button>
-            <button id="btn-warp-tetris" type="button" class="btn-hud">🕹️ Sala Tetris</button>
-        </div>
-        <div class="ayuda-teclas">
-            <span>WASD: Mover</span> · <span>Espacio: Saltar</span> · <span>Tab: Menú</span> · <span>E: Interactuar</span>
-        </div>
-    </aside>
+    </section>
 
     <!-- Aviso de Interacción Contextual -->
     <div id="aviso-interaccion" class="aviso-interaccion oculto">[E] Interactuar</div>
 
-    <!-- Contenedor de Notificaciones -->
+    <!-- Contenedor Central de Notificación (Máximo 1 Toast Breve a la Vez) -->
     <div id="contenedor-notificaciones" class="contenedor-notificaciones"></div>
 
     <!-- Disparador Compacto y Popover Colapsable de Bloques Voxel (visible en ZonaConstruccion) -->
@@ -171,7 +221,26 @@
         <div id="lista-ranking-karts" class="lista-ranking-karts"></div>
     </section>
 
-    <div id="banner-conteo-karts" class="banner-conteo-karts oculto"></div>
+    <div id="banner-conteo-kart" class="banner-conteo-kart oculto">
+        <span id="texto-conteo-kart" class="texto-conteo-kart"></span>
+        <button id="btn-cancelar-salida" type="button" class="btn-cancelar-salida oculto" title="Abortar salida y volver al Paddock">✖ Cancelar</button>
+    </div>
+
+    <!-- Banner TV F1 Lower-Third de Ceremonia de Podio (Parte Inferior, Vista 3D 100% Despejada) -->
+    <aside id="banner-podio-f1" class="banner-podio-f1 oculto" aria-label="Podio Oficial F1">
+        <div class="podio-f1-franja-damero"></div>
+        <div class="podio-f1-cuerpo">
+            <div class="podio-f1-cabecera">
+                <span class="podio-f1-marca">🏁 GP TURBO KARTS · PODIO OFICIAL</span>
+                <span id="podio-f1-temporizador" class="podio-f1-temporizador">12s</span>
+            </div>
+            <div class="podio-f1-fila-datos">
+                <div id="podio-f1-lista" class="podio-f1-lista"></div>
+                <div id="podio-f1-vuelta-rapida" class="podio-f1-vuelta-rapida">⚡ Vuelta Rápida: --:--.-</div>
+            </div>
+        </div>
+        <div class="podio-f1-franja-damero"></div>
+    </aside>
 
     <!-- Disparador Compacto y Popover Lateral Garaje Kart (visible en ArenaTurboKarts) -->
     <button id="btn-toggle-kart" type="button" class="btn-toggle-kart oculto" aria-expanded="false" title="Abrir Garaje Kart (Tecla G)">
@@ -182,90 +251,43 @@
         <div class="kart-garaje-panel">
             <div class="kart-garaje-stats">
                 <div class="stat-fila">
-                    <span>VEL</span>
+                    <div class="stat-etiqueta">
+                        <span>VEL</span>
+                        <span id="valor-stat-vel" class="stat-valor">45</span>
+                    </div>
                     <div class="stat-pista"><div id="barra-stat-vel" class="stat-relleno"></div></div>
                 </div>
                 <div class="stat-fila">
-                    <span>ACEL</span>
+                    <div class="stat-etiqueta">
+                        <span>ACEL</span>
+                        <span id="valor-stat-acel" class="stat-valor">39</span>
+                    </div>
                     <div class="stat-pista"><div id="barra-stat-acel" class="stat-relleno"></div></div>
                 </div>
                 <div class="stat-fila">
-                    <span>CTRL</span>
+                    <div class="stat-etiqueta">
+                        <span>CTRL</span>
+                        <span id="valor-stat-ctrl" class="stat-valor">36</span>
+                    </div>
                     <div class="stat-pista"><div id="barra-stat-ctrl" class="stat-relleno"></div></div>
                 </div>
             </div>
-            <div class="kart-garaje-grupos">
-                <div class="kart-grupo">
-                    <span>Chasis (120 pts)</span>
-                    <div id="selector-kart-chasis" class="selector-chips"></div>
+            <div class="kart-garaje-carruseles">
+                <div class="kart-carrusel-fila">
+                    <span class="kart-carrusel-etiqueta">Chasis</span>
+                    <div id="selector-kart-chasis" class="kart-carrusel-control"></div>
                 </div>
-                <div class="kart-grupo">
-                    <span>Ruedas</span>
-                    <div id="selector-kart-ruedas" class="selector-chips"></div>
+                <div class="kart-carrusel-fila">
+                    <span class="kart-carrusel-etiqueta">Ruedas</span>
+                    <div id="selector-kart-ruedas" class="kart-carrusel-control"></div>
                 </div>
-                <div class="kart-grupo">
-                    <span>Alerón</span>
-                    <div id="selector-kart-aleron" class="selector-chips"></div>
+                <div class="kart-carrusel-fila">
+                    <span class="kart-carrusel-etiqueta">Alerón</span>
+                    <div id="selector-kart-aleron" class="kart-carrusel-control"></div>
                 </div>
-                <div class="kart-grupo">
-                    <span>Pintura</span>
-                    <div id="selector-kart-color" class="selector-colores"></div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Modal de Inventario / Tienda -->
-    <section id="modal-inventario" class="modal-inventario oculto" role="dialog" aria-modal="true" aria-label="Mochila y Tienda">
-        <div class="modal-contenido">
-            <div class="modal-cabecera">
-                <h2>Mochila y Tienda de Accesorios</h2>
-                <button id="btn-cerrar-inventario" type="button" class="btn-cerrar">✕</button>
-            </div>
-            <div id="lista-inventario" class="lista-inventario"></div>
-        </div>
-    </section>
-
-    <!-- Estudio de Personalización de Avatar en Vivo (Panel lateral no bloqueante) -->
-    <section id="modal-avatar" class="modal-avatar-drawer oculto" role="dialog" aria-modal="false" aria-label="Estudio de Avatar">
-        <div class="modal-contenido modal-avatar-contenido">
-            <div class="modal-cabecera">
-                <div>
-                    <h2>Estudio de Avatar 3D</h2>
-                    <span class="subtitulo-preview">Arrastra el personaje en 3D para rotar</span>
-                </div>
-                <button id="btn-cerrar-avatar" type="button" class="btn-cerrar">✕</button>
-            </div>
-            <div class="avatar-editor-grid">
-                <div class="avatar-seccion">
-                    <h3>Tono de Piel</h3>
-                    <div id="selector-piel" class="selector-colores"></div>
-                </div>
-                <div class="avatar-seccion">
-                    <h3>Color de Torso</h3>
-                    <div id="selector-torso" class="selector-colores"></div>
-                </div>
-                <div class="avatar-seccion">
-                    <h3>Color de Piernas</h3>
-                    <div id="selector-piernas" class="selector-colores"></div>
-                </div>
-                <div class="avatar-seccion">
-                    <h3>Expresión Facial</h3>
-                    <div id="selector-rostro" class="selector-chips"></div>
-                </div>
-                <div class="avatar-seccion">
-                    <h3>Accesorios Desbloqueados</h3>
-                    <div id="selector-accesorios-avatar" class="selector-chips"></div>
-                </div>
-                <div class="avatar-seccion">
-                    <h3>Respaldo de Perfil (Base64)</h3>
-                    <div class="perfil-transferencia">
-                        <input id="input-codigo-perfil" type="text" placeholder="Pega aquí tu código Base64 para importar" aria-label="Código de perfil Base64" />
-                        <div class="perfil-botones">
-                            <button id="btn-exportar-perfil" type="button" class="btn-primario">Exportar</button>
-                            <button id="btn-importar-perfil" type="button" class="btn-secundario">Importar</button>
-                        </div>
-                    </div>
+                <div class="kart-carrusel-pintura">
+                    <span class="kart-carrusel-etiqueta">Color</span>
+                    <div id="selector-kart-color" class="selector-colores selector-colores-compacto"></div>
                 </div>
             </div>
         </div>
@@ -333,16 +355,24 @@
         </div>
     </section>
 
-    <!-- Controles Táctiles Responsivos -->
+    <!-- Controles Táctiles Estilo Genshin/Fortnite (Joystick Flotante Izquierdo + Arco Pulgar Derecho) -->
     <div id="controles-moviles" class="controles-moviles">
-        <div id="zona-joystick" class="zona-joystick">
-            <div id="palanca-joystick" class="palanca-joystick"></div>
+        <div id="zona-joystick-dinamico" class="zona-joystick-dinamico">
+            <div id="base-joystick-dinamico" class="base-joystick-dinamico">
+                <div id="palanca-joystick" class="palanca-joystick"></div>
+            </div>
         </div>
-        <div class="botones-moviles-derecha">
-            <button id="btn-movil-sprint" type="button" class="btn-movil btn-sprint">⚡</button>
-            <button id="btn-movil-accion" type="button" class="btn-movil btn-accion">E</button>
-            <button id="btn-movil-saltar" type="button" class="btn-movil btn-saltar">▲</button>
+        <div class="botones-moviles-arco">
+            <button id="btn-movil-sprint" type="button" class="btn-movil btn-sprint" aria-label="Sprint o Derrapar">⚡</button>
+            <button id="btn-movil-accion" type="button" class="btn-movil btn-accion" aria-label="Interactuar o Frenar">E</button>
+            <button id="btn-movil-saltar" type="button" class="btn-movil btn-saltar" aria-label="Saltar o Acelerar">▲</button>
         </div>
+    </div>
+
+    <!-- Banner Descartable de Orientación Horizontal en Dispositivos Táctiles -->
+    <div id="aviso-girar-pantalla" class="aviso-girar-pantalla" role="status">
+        <span>📱 Gira tu celular a posición horizontal para jugar mejor</span>
+        <button id="btn-cerrar-girar-pantalla" type="button" class="btn-cerrar" aria-label="Ocultar aviso">✕</button>
     </div>
 
     <!-- Puerta de Entrada: Selección / Creación de Perfil Único y Conexión a Sala Pública -->

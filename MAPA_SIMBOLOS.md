@@ -32,9 +32,9 @@ Total de módulos analizados: **16**
 ## `js/estado.js`
 
 - **Imports**: `./constantes.js` (L5)
-- **Exports**: `estadoJugador` [const] (L24), `estadoRed` [const] (L53), `estadoSandbox` [const] (L63), `estadoControles` [const] (L70), `suscribirEstado` [function] (L103), `notificarEstado` [function] (L113), `obtenerXpParaSiguienteNivel` [function] (L128), `construirResumenPerfil` [function] (L136), `aplicarDatosPerfil` [function] (L156), `cargarPerfilesLocales` [function] (L259), `restablecerPerfilNuevo` [function] (L295), `guardarEstadoLocal` [function] (L326), `cargarEstadoLocal` [function] (L347), `exportarCodigoPerfil` [function] (L362), `importarCodigoPerfil` [function] (L377)
-- **Funciones**: `suscribirEstado` (L103), `notificarEstado` (L113), `obtenerXpParaSiguienteNivel` (L128), `construirResumenPerfil` (L136), `aplicarDatosPerfil` (L156), `cargarPerfilesLocales` (L259), `restablecerPerfilNuevo` (L295), `guardarEstadoLocal` (L326), `cargarEstadoLocal` (L347), `exportarCodigoPerfil` (L362), `importarCodigoPerfil` (L377)
-- **Constantes**: `CLAVE_ALMACENAMIENTO` (L15), `CLAVE_PERFILES_LOCALES` (L16), `MAPA_MIGRACION_CHASIS` (L18), `estadoJugador` (L24), `estadoRed` (L53), `estadoSandbox` (L63), `estadoControles` (L70), `suscriptores` (L96)
+- **Exports**: `estadoJugador` [const] (L24), `estadoRed` [const] (L53), `estadoSandbox` [const] (L63), `estadoControles` [const] (L70), `suscribirEstado` [function] (L104), `notificarEstado` [function] (L114), `obtenerXpParaSiguienteNivel` [function] (L129), `construirResumenPerfil` [function] (L137), `aplicarDatosPerfil` [function] (L157), `cargarPerfilesLocales` [function] (L260), `restablecerPerfilNuevo` [function] (L296), `guardarEstadoLocal` [function] (L327), `cargarEstadoLocal` [function] (L348), `exportarCodigoPerfil` [function] (L363), `importarCodigoPerfil` [function] (L378)
+- **Funciones**: `suscribirEstado` (L104), `notificarEstado` (L114), `obtenerXpParaSiguienteNivel` (L129), `construirResumenPerfil` (L137), `aplicarDatosPerfil` (L157), `cargarPerfilesLocales` (L260), `restablecerPerfilNuevo` (L296), `guardarEstadoLocal` (L327), `cargarEstadoLocal` (L348), `exportarCodigoPerfil` (L363), `importarCodigoPerfil` (L378)
+- **Constantes**: `CLAVE_ALMACENAMIENTO` (L15), `CLAVE_PERFILES_LOCALES` (L16), `MAPA_MIGRACION_CHASIS` (L18), `estadoJugador` (L24), `estadoRed` (L53), `estadoSandbox` (L63), `estadoControles` (L70), `suscriptores` (L97)
 
 ## `js/experiencias/arenaTurboKarts.js`
 
@@ -73,13 +73,15 @@ Total de módulos analizados: **16**
 ## `js/interfaz.js`
 
 - **Imports**: `./constantes.js` (L5), `./estado.js` (L13), `./recursos.js` (L27), `./audio.js` (L28), `./avatar.js` (L34), `./fisicaSandbox.js` (L40), `./nucleoSandbox.js` (L41), `./red.js` (L42)
-- **Exports**: `mostrarNotificacion` [function] (L68), `actualizarHUD` [function] (L492), `inicializarInterfaz` [function] (L1413)
-- **Funciones**: `el` (L59), `mostrarNotificacion` (L68), `cerrarPanelesFlotantes` (L86), `alternarGarajeKart` (L107), `alternarEstudioAvatar` (L127), `aplicarCambioApariencia` (L146), `dispararGestoSocial` (L160), `enviarChatRapido` (L170), `ejecutarInteraccion` (L181), `renderizarInventario` (L193), `renderizarEstudioAvatar` (L281), `renderizarHotbarBloques` (L358), `formatearTiempoCarrera` (L418), `renderizarGarajeKart` (L430), `actualizarHUD` (L492), `renderizarOverlayTetris` (L634), `vincularControlesEntrada` (L673), `vincularMenuRadialYSocial` (L929), `esDispositivoMovilTactil` (L1067), `solicitarPantallaCompletaSeguro` (L1077), `alternarPantallaCompleta` (L1096), `inicializarPantallaBienvenida` (L1119), `inicializarInterfaz` (L1413)
+- **Exports**: `mostrarNotificacion` [function] (L73), `actualizarHUD` [function] (L692), `inicializarInterfaz` [function] (L1697)
+- **Funciones**: `el` (L63), `mostrarNotificacion` (L73), `cerrarPanelesFlotantes` (L98), `sincronizarVisibilidadControlesMoviles` (L116), `renderizarResumenJugador` (L128), `cambiarTabMenuUnificado` (L139), `alternarMenuUnificado` (L173), `alternarGarajeKart` (L198), `aplicarCambioApariencia` (L217), `dispararGestoSocial` (L231), `enviarChatRapido` (L241), `ejecutarInteraccion` (L252), `renderizarInventario` (L264), `renderizarEstudioAvatar` (L375), `renderizarHotbarBloques` (L452), `formatearTiempoCarrera` (L512), `renderizarGarajeKart` (L524), `renderizarBannerPodioF1` (L643), `actualizarHUD` (L692), `renderizarOverlayTetris` (L855), `vincularControlesEntrada` (L895), `vincularMenuRobloxYSocial` (L1202), `esDispositivoMovilTactil` (L1343), `solicitarPantallaCompletaSeguro` (L1353), `alternarPantallaCompleta` (L1378), `inicializarPantallaBienvenida` (L1401), `inicializarInterfaz` (L1697)
 
 ## `js/main.js`
 
-- **Imports**: `./config.js` (L6), `./estado.js` (L7), `./avatar.js` (L13), `./fisicaSandbox.js` (L14), `./nucleoSandbox.js` (L15), `./red.js` (L19), `./audio.js` (L20), `./interfaz.js` (L21), `./experiencias/lobbyCentral.js` (L22), `./experiencias/zonaConstruccion.js` (L23), `./experiencias/arenaTurboKarts.js` (L24), `./experiencias/salaTetris.js` (L25)
-- **Funciones**: `iniciarSandbox` (L27)
+- **Imports**: `./config.js` (L6), `./estado.js` (L7), `./avatar.js` (L14), `./fisicaSandbox.js` (L15), `./nucleoSandbox.js` (L16), `./red.js` (L20), `./audio.js` (L21), `./interfaz.js` (L22), `./experiencias/lobbyCentral.js` (L23), `./experiencias/zonaConstruccion.js` (L24), `./experiencias/arenaTurboKarts.js` (L25), `./experiencias/salaTetris.js` (L26)
+- **Exports**: `resolverColisionCamara` [function] (L74)
+- **Funciones**: `recolectarMallasBloqueantes` (L41), `resolverColisionCamara` (L74), `iniciarSandbox` (L101)
+- **Constantes**: `_raycasterCamara` (L28), `_dirCamara` (L29), `_posResueltaCamara` (L30), `_candidatosColisionCamara` (L31), `_objetosIgnoradosCamara` (L32)
 
 ## `js/nucleoSandbox.js`
 
@@ -106,5 +108,5 @@ Total de módulos analizados: **16**
 ## `js/red.js`
 
 - **Imports**: `./constantes.js` (L5), `./config.js` (L6), `./estado.js` (L7), `./avatar.js` (L16), `./recursos.js` (L24)
-- **Exports**: `listarPerfilesServidor` [function] (L60), `crearPerfilServidor` [function] (L81), `guardarPerfilServidor` [function] (L113), `configurarReceptorEventosExperiencia` [function] (L154), `enviarEstadoJugadorInmediato` [function] (L421), `conectarSalaMultijugador` [function] (L435), `desconectarSalaMultijugador` [function] (L535), `enviarAccionSocial` [function] (L564), `enviarEventoExperiencia` [function] (L579), `actualizarRed` [function] (L594)
-- **Funciones**: `fetchJsonConTimeout` (L41), `listarPerfilesServidor` (L60), `crearPerfilServidor` (L81), `guardarPerfilServidor` (L113), `configurarReceptorEventosExperiencia` (L154), `upsertJugadorRemoto` (L163), `eliminarJugadorRemoto` (L263), `limpiarJugadoresRemotos` (L275), `procesarMensajeServidor` (L285), `serializarEstadoJugadorLocal` (L397), `enviarEstadoJugadorInmediato` (L421), `conectarSalaMultijugador` (L435), `desconectarSalaMultijugador` (L535), `enviarAccionSocial` (L564), `enviarEventoExperiencia` (L579), `actualizarRed` (L594)
+- **Exports**: `listarPerfilesServidor` [function] (L60), `crearPerfilServidor` [function] (L81), `guardarPerfilServidor` [function] (L113), `configurarReceptorEventosExperiencia` [function] (L154), `enviarEstadoJugadorInmediato` [function] (L421), `conectarSalaMultijugador` [function] (L435), `desconectarSalaMultijugador` [function] (L535), `enviarAccionSocial` [function] (L564), `enviarEventoExperiencia` [function] (L579), `enviarCancelacionSalidaKart` [function] (L593), `actualizarRed` [function] (L607)
+- **Funciones**: `fetchJsonConTimeout` (L41), `listarPerfilesServidor` (L60), `crearPerfilServidor` (L81), `guardarPerfilServidor` (L113), `configurarReceptorEventosExperiencia` (L154), `upsertJugadorRemoto` (L163), `eliminarJugadorRemoto` (L263), `limpiarJugadoresRemotos` (L275), `procesarMensajeServidor` (L285), `serializarEstadoJugadorLocal` (L397), `enviarEstadoJugadorInmediato` (L421), `conectarSalaMultijugador` (L435), `desconectarSalaMultijugador` (L535), `enviarAccionSocial` (L564), `enviarEventoExperiencia` (L579), `enviarCancelacionSalidaKart` (L593), `actualizarRed` (L607)

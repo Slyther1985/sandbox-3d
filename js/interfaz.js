@@ -50,6 +50,10 @@ import {
 
 let contextoGlobal = null;
 let resumenHudPrevio = '';
+let timerNotificacion = null;
+let tabMenuUnificadoActiva = 'sala';
+let pointerJoystickActivo = null;
+let filtroMochilaActivo = 'todos';
 
 /**
  * Obtiene un elemento del DOM por ID.
@@ -61,7 +65,8 @@ function el(id) {
 }
 
 /**
- * Muestra una notificación emergente temporal en el HUD.
+ * Muestra a lo sumo 1 notificación emergente breve en el centro superior,
+ * reemplazando cualquier aviso anterior para no apilar tarjetas ni tapar el HUD.
  * @param {string} mensaje
  * @param {'info'|'exito'|'alerta'} [tipo]
  */
@@ -69,35 +74,121 @@ export function mostrarNotificacion(mensaje, tipo = 'info') {
     const contenedor = el('contenedor-notificaciones');
     if (!contenedor || !mensaje) return;
 
+    if (timerNotificacion) {
+        clearTimeout(timerNotificacion);
+        timerNotificacion = null;
+    }
+    contenedor.innerHTML = '';
+
     const toast = document.createElement('div');
     toast.className = `notificacion notificacion-${tipo}`;
     toast.textContent = mensaje;
     contenedor.appendChild(toast);
 
-    setTimeout(() => {
+    timerNotificacion = setTimeout(() => {
+        timerNotificacion = null;
         toast.classList.add('saliendo');
-        setTimeout(() => toast.remove(), 300);
-    }, 3200);
+        setTimeout(() => toast.remove(), 220);
+    }, 2400);
 }
 
 /**
- * Cierra paneles secundarios y restaura la cámara si el Estudio de Avatar estaba abierto.
+ * Cierra paneles secundarios y restaura la cámara si la pestaña Avatar 3D estaba activa.
  */
 function cerrarPanelesFlotantes() {
-    el('menu-dona-overlay')?.classList.add('oculto');
-    el('modal-inventario')?.classList.add('oculto');
-    el('panel-gestos-dona')?.classList.add('oculto');
+    el('menu-principal-unificado')?.classList.add('oculto');
+    el('menu-principal-unificado')?.classList.remove('modo-dock-avatar');
+    el('panel-gestos')?.classList.add('oculto');
     el('panel-chat-rapido')?.classList.add('oculto');
-    el('panel-red')?.classList.add('oculto');
     el('popover-bloques')?.classList.add('oculto');
     el('btn-toggle-bloques')?.setAttribute('aria-expanded', 'false');
+    el('btn-hud-menu')?.classList.remove('activo');
+    el('btn-hud-chat')?.classList.remove('activo');
+    el('btn-hud-gestos')?.classList.remove('activo');
     alternarGarajeKart(false);
+    estadoControles.modoPreviewAvatar = false;
+    sincronizarVisibilidadControlesMoviles();
+}
 
-    const modalAvatar = el('modal-avatar');
-    if (modalAvatar && !modalAvatar.classList.contains('oculto')) {
-        modalAvatar.classList.add('oculto');
-        estadoControles.modoPreviewAvatar = false;
+/**
+ * Oculta `#controles-moviles` en Tetris fullscreen, Podio F1, Menú Unificado o Bienvenida.
+ */
+function sincronizarVisibilidadControlesMoviles() {
+    const tetrisActivo = Boolean(estadoControles.modoTetrisActivo && estadoJugador.experienciaActiva === 'tetris');
+    const podioActivo = Boolean(estadoControles.modoCeremoniaPodio && estadoJugador.experienciaActiva === 'karts');
+    const menuEl = el('menu-principal-unificado');
+    const menuAbierto = Boolean(menuEl && !menuEl.classList.contains('oculto'));
+    const bienvenidaActiva = Boolean(estadoControles.pantallaBienvenidaActiva);
+    el('controles-moviles')?.classList.toggle('oculto', tetrisActivo || podioActivo || menuAbierto || bienvenidaActiva);
+}
+
+/**
+ * Actualiza récords personales visibles dentro de la pestaña Jugador.
+ */
+function renderizarResumenJugador() {
+    const recKart = el('jugador-record-kart');
+    const recTetris = el('jugador-record-tetris');
+    if (recKart) recKart.textContent = formatearTiempoCarrera(estadoJugador.mejorVueltaKart);
+    if (recTetris) recTetris.textContent = String(estadoJugador.mejorPuntajeTetris || 0);
+}
+
+/**
+ * Cambia la pestaña activa dentro de `#menu-principal-unificado` y ajusta el dock lateral de Avatar 3D.
+ * @param {'sala'|'avatar'|'mochila'|'jugador'} tabId
+ */
+function cambiarTabMenuUnificado(tabId = 'sala') {
+    const validas = ['sala', 'avatar', 'mochila', 'jugador'];
+    const destino = validas.includes(tabId) ? tabId : 'sala';
+    tabMenuUnificadoActiva = destino;
+
+    const menu = el('menu-principal-unificado');
+    const esAvatar = destino === 'avatar';
+    menu?.classList.toggle('modo-dock-avatar', esAvatar);
+    estadoControles.modoPreviewAvatar = Boolean(menu && !menu.classList.contains('oculto') && esAvatar);
+
+    for (const id of validas) {
+        const activo = id === destino;
+        const btnTab = el(`tab-menu-${id}`);
+        const panelTab = el(`panel-menu-${id}`);
+        btnTab?.classList.toggle('activo', activo);
+        btnTab?.setAttribute('aria-selected', String(activo));
+        panelTab?.classList.toggle('oculto', !activo);
     }
+
+    if (esAvatar) {
+        estadoControles.anguloPreviewAvatar = estadoJugador.rotacion;
+        renderizarEstudioAvatar();
+    } else if (destino === 'mochila') {
+        renderizarInventario();
+    } else if (destino === 'jugador') {
+        renderizarResumenJugador();
+    }
+    sincronizarVisibilidadControlesMoviles();
+}
+
+/**
+ * Abre `#menu-principal-unificado` en la pestaña solicitada o lo alterna si ya está visible.
+ * @param {'sala'|'avatar'|'mochila'|'jugador'} [tabId]
+ */
+function alternarMenuUnificado(tabId = tabMenuUnificadoActiva) {
+    const menu = el('menu-principal-unificado');
+    if (!menu) return;
+    const estabaOculto = menu.classList.contains('oculto');
+    if (estabaOculto) {
+        cerrarPanelesFlotantes();
+        estadoControles.joystick.x = 0;
+        estadoControles.joystick.y = 0;
+        estadoControles.joystick.magnitud = 0;
+        estadoControles.joystick.activo = false;
+        estadoControles.autoSprintJoystick = false;
+        menu.classList.remove('oculto');
+        el('btn-hud-menu')?.classList.add('activo');
+        cambiarTabMenuUnificado(tabId);
+    } else {
+        cerrarPanelesFlotantes();
+    }
+    sincronizarVisibilidadControlesMoviles();
+    reproducirSonido('interaccion');
 }
 
 /**
@@ -118,26 +209,6 @@ function alternarGarajeKart(abrir) {
     if (debeAbrir) {
         renderizarGarajeKart();
     }
-}
-
-/**
- * Abre o cierra el Estudio de Avatar activando la cámara en vivo `modoPreviewAvatar`.
- * @param {boolean} abrir
- */
-function alternarEstudioAvatar(abrir) {
-    const modal = el('modal-avatar');
-    if (!modal) return;
-    if (abrir) {
-        cerrarPanelesFlotantes();
-        renderizarEstudioAvatar();
-        modal.classList.remove('oculto');
-        estadoControles.modoPreviewAvatar = true;
-        estadoControles.anguloPreviewAvatar = estadoJugador.rotacion;
-    } else {
-        modal.classList.add('oculto');
-        estadoControles.modoPreviewAvatar = false;
-    }
-    reproducirSonido('interaccion');
 }
 
 /**
@@ -188,21 +259,40 @@ function ejecutarInteraccion() {
 }
 
 /**
- * Renderiza el catálogo de inventario y tienda dentro del modal.
+ * Renderiza el catálogo escalable de inventario y tienda con filtros por categoría y losetas compactas.
  */
 function renderizarInventario() {
     const lista = el('lista-inventario');
+    const contador = el('contador-mochila');
+    if (contador) {
+        contador.textContent = `${estadoJugador.inventario.length} / ${CATALOGO_ITEMS.length}`;
+    }
     if (!lista) return;
     lista.innerHTML = '';
 
-    for (const item of CATALOGO_ITEMS) {
+    const iconosSlot = { cabeza: '🎩', espalda: '🎒', aura: '✨' };
+    const filtrados = CATALOGO_ITEMS.filter((item) => {
+        if (filtroMochilaActivo === 'todos') return true;
+        if (filtroMochilaActivo === 'equipados') return estadoJugador.equipado[item.slot] === item.id;
+        return item.slot === filtroMochilaActivo;
+    });
+
+    if (filtrados.length === 0) {
+        const vacio = document.createElement('div');
+        vacio.className = 'mochila-vacia';
+        vacio.textContent = 'No hay artículos en esta categoría.';
+        lista.appendChild(vacio);
+        return;
+    }
+
+    for (const item of filtrados) {
         const rareza = RAREZAS[item.rareza] || RAREZAS.COMUN;
         const enInventario = estadoJugador.inventario.includes(item.id);
         const estaEquipado = estadoJugador.equipado[item.slot] === item.id;
 
         const tarjeta = document.createElement('div');
         tarjeta.className = `tarjeta-item ${estaEquipado ? 'item-equipado' : ''}`;
-        tarjeta.style.borderColor = rareza.color;
+        tarjeta.style.borderTopColor = rareza.color;
 
         const cabecera = document.createElement('div');
         cabecera.className = 'tarjeta-item-cabecera';
@@ -214,15 +304,19 @@ function renderizarInventario() {
 
         const slotTag = document.createElement('span');
         slotTag.className = 'slot-item';
-        slotTag.textContent = item.slot.toUpperCase();
+        slotTag.textContent = iconosSlot[item.slot] || '🧩';
+        slotTag.title = item.slot.toUpperCase();
 
         cabecera.append(badge, slotTag);
 
         const titulo = document.createElement('h4');
         titulo.textContent = item.nombre;
+        titulo.title = item.nombre;
 
-        const desc = document.createElement('p');
+        const desc = document.createElement('div');
+        desc.className = 'item-subtitulo';
         desc.textContent = item.descripcion;
+        desc.title = item.descripcion;
 
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -248,8 +342,8 @@ function renderizarInventario() {
                 actualizarHUD();
             });
         } else if (estaEquipado) {
-            btn.textContent = 'Desequipar';
-            btn.classList.add('btn-secundario');
+            btn.textContent = '✓ Equipado';
+            btn.classList.add('btn-item-equipado');
             btn.addEventListener('click', () => {
                 estadoJugador.equipado[item.slot] = null;
                 sincronizarAccesoriosAvatar(contextoGlobal?.avatarLocal, estadoJugador.equipado);
@@ -425,21 +519,51 @@ function formatearTiempoCarrera(seg) {
 }
 
 /**
- * Renderiza el personalizador colapsable del Garaje Kart y las barras VEL/ACEL/CTRL.
+ * Renderiza el personalizador colapsable del Garaje Kart con barras VEL/ACEL/CTRL y 3 carruseles con flechas.
  */
 function renderizarGarajeKart() {
     const exp = estadoSandbox.experienciaActual;
+    const chasis = CATALOGO_KARTS.find((k) => k.id === estadoJugador.configKart.chasis) || CATALOGO_KARTS[0];
+    const rueda =
+        CATALOGO_PIEZAS_KART.ruedas.find((r) => r.id === estadoJugador.configKart.ruedas) ||
+        CATALOGO_PIEZAS_KART.ruedas[0];
+    const aleron =
+        CATALOGO_PIEZAS_KART.alerones.find((a) => a.id === estadoJugador.configKart.aleron) ||
+        CATALOGO_PIEZAS_KART.alerones[1];
+
+    const deltaFallback = {
+        velocidad: rueda.modStats.velocidad + aleron.modStats.velocidad,
+        aceleracion: rueda.modStats.aceleracion + aleron.modStats.aceleracion,
+        control: rueda.modStats.control + aleron.modStats.control
+    };
+
     const stats = typeof exp?.obtenerStatsKart === 'function'
         ? exp.obtenerStatsKart(estadoJugador.configKart)
-        : { velocidad: 45, aceleracion: 39, control: 36 };
+        : {
+              velocidad: Math.max(15, chasis.velocidad + deltaFallback.velocidad),
+              aceleracion: Math.max(15, chasis.aceleracion + deltaFallback.aceleracion),
+              control: Math.max(15, chasis.control + deltaFallback.control),
+              delta: deltaFallback
+          };
+    const delta = stats.delta || deltaFallback;
 
-    const setBarra = (id, valor) => {
-        const barra = el(id);
+    const aplicarStat = (idBarra, idValor, valor, deltaVal) => {
+        const barra = el(idBarra);
         if (barra) barra.style.width = `${Math.min(100, Math.round((valor / 65) * 100))}%`;
+        const valEl = el(idValor);
+        if (valEl) {
+            valEl.textContent = String(valor);
+            if (typeof deltaVal === 'number' && deltaVal !== 0) {
+                const badgeDelta = document.createElement('span');
+                badgeDelta.className = `stat-delta ${deltaVal > 0 ? 'positivo' : 'negativo'}`;
+                badgeDelta.textContent = ` (${deltaVal > 0 ? '+' : ''}${deltaVal})`;
+                valEl.appendChild(badgeDelta);
+            }
+        }
     };
-    setBarra('barra-stat-vel', stats.velocidad);
-    setBarra('barra-stat-acel', stats.aceleracion);
-    setBarra('barra-stat-ctrl', stats.control);
+    aplicarStat('barra-stat-vel', 'valor-stat-vel', stats.velocidad, delta.velocidad);
+    aplicarStat('barra-stat-acel', 'valor-stat-acel', stats.aceleracion, delta.aceleracion);
+    aplicarStat('barra-stat-ctrl', 'valor-stat-ctrl', stats.control, delta.control);
 
     const actualizarConfig = () => {
         exp?.actualizarKartJugador?.();
@@ -447,26 +571,52 @@ function renderizarGarajeKart() {
         reproducirSonido('interaccion');
     };
 
-    const poblarChips = (idCont, lista, clave) => {
+    const poblarCarrusel = (idCont, lista, clave) => {
         const cont = el(idCont);
-        if (!cont) return;
+        if (!cont || !Array.isArray(lista) || lista.length === 0) return;
         cont.innerHTML = '';
-        for (const item of lista) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = `chip-opcion ${estadoJugador.configKart[clave] === item.id ? 'activo' : ''}`;
-            btn.textContent = item.nombre;
-            btn.addEventListener('click', () => {
-                estadoJugador.configKart[clave] = item.id;
-                actualizarConfig();
-            });
-            cont.appendChild(btn);
-        }
+
+        const idxActual = Math.max(
+            0,
+            lista.findIndex((item) => item.id === estadoJugador.configKart[clave])
+        );
+        const itemActual = lista[idxActual];
+
+        const btnPrev = document.createElement('button');
+        btnPrev.type = 'button';
+        btnPrev.className = 'btn-carrusel-flecha';
+        btnPrev.textContent = '◀';
+        btnPrev.setAttribute('aria-label', `Anterior ${clave}`);
+        btnPrev.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const nuevoIdx = (idxActual - 1 + lista.length) % lista.length;
+            estadoJugador.configKart[clave] = lista[nuevoIdx].id;
+            actualizarConfig();
+        });
+
+        const etiquetaValor = document.createElement('span');
+        etiquetaValor.className = 'carrusel-valor';
+        etiquetaValor.textContent = itemActual.nombre;
+        etiquetaValor.title = itemActual.nombre;
+
+        const btnNext = document.createElement('button');
+        btnNext.type = 'button';
+        btnNext.className = 'btn-carrusel-flecha';
+        btnNext.textContent = '▶';
+        btnNext.setAttribute('aria-label', `Siguiente ${clave}`);
+        btnNext.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const nuevoIdx = (idxActual + 1) % lista.length;
+            estadoJugador.configKart[clave] = lista[nuevoIdx].id;
+            actualizarConfig();
+        });
+
+        cont.append(btnPrev, etiquetaValor, btnNext);
     };
 
-    poblarChips('selector-kart-chasis', CATALOGO_KARTS, 'chasis');
-    poblarChips('selector-kart-ruedas', CATALOGO_PIEZAS_KART.ruedas, 'ruedas');
-    poblarChips('selector-kart-aleron', CATALOGO_PIEZAS_KART.alerones, 'aleron');
+    poblarCarrusel('selector-kart-chasis', CATALOGO_KARTS, 'chasis');
+    poblarCarrusel('selector-kart-ruedas', CATALOGO_PIEZAS_KART.ruedas, 'ruedas');
+    poblarCarrusel('selector-kart-aleron', CATALOGO_PIEZAS_KART.alerones, 'aleron');
 
     const contColor = el('selector-kart-color');
     if (contColor) {
@@ -487,6 +637,56 @@ function renderizarGarajeKart() {
 }
 
 /**
+ * Actualiza el banner broadcast TV F1 en la parte inferior durante la Ceremonia de Podio.
+ * @param {boolean} esKarts
+ */
+function renderizarBannerPodioF1(esKarts) {
+    const banner = el('banner-podio-f1');
+    if (!banner) return;
+
+    const info = esKarts ? estadoSandbox.experienciaActual?.obtenerEstadoPodioF1?.() : null;
+    if (!info?.activo) {
+        banner.classList.add('oculto');
+        return;
+    }
+
+    banner.classList.remove('oculto');
+    const timerEl = el('podio-f1-temporizador');
+    if (timerEl) timerEl.textContent = `${info.segundosRestantes}s`;
+
+    const listaEl = el('podio-f1-lista');
+    if (listaEl) {
+        listaEl.innerHTML = '';
+        const medallas = ['1.º', '2.º', '3.º'];
+        (info.top3 || []).slice(0, 3).forEach((finisher, idx) => {
+            const chip = document.createElement('div');
+            chip.className = `podio-f1-puesto p${idx + 1}`;
+
+            const posSpan = document.createElement('strong');
+            posSpan.textContent = medallas[idx] || `${idx + 1}.º`;
+
+            const nomSpan = document.createElement('span');
+            nomSpan.textContent = finisher.apodo || 'Piloto';
+
+            const tSpan = document.createElement('span');
+            tSpan.className = 'podio-f1-tiempo';
+            tSpan.textContent = formatearTiempoCarrera(finisher.tiempo);
+
+            chip.append(posSpan, nomSpan, tSpan);
+            listaEl.appendChild(chip);
+        });
+    }
+
+    const vueltaEl = el('podio-f1-vuelta-rapida');
+    if (vueltaEl) {
+        const vr = info.vueltaRapida;
+        vueltaEl.textContent = vr?.apodo && typeof vr?.tiempo === 'number'
+            ? `⚡ Vuelta Rápida: ${formatearTiempoCarrera(vr.tiempo)} — ${vr.apodo}`
+            : '⚡ Vuelta Rápida: --:--.-';
+    }
+}
+
+/**
  * Sincroniza los textos e indicadores del HUD con el estado reactivo actual.
  */
 export function actualizarHUD() {
@@ -501,8 +701,10 @@ export function actualizarHUD() {
     const esKarts = estadoJugador.experienciaActiva === 'karts';
     const ec = esKarts ? estadoSandbox.experienciaActual?.estadoCarrera : null;
     const tablaKarts = esKarts ? estadoSandbox.experienciaActual?.tablaTiempos : null;
+    const segsPodio = esKarts ? Math.ceil(estadoSandbox.experienciaActual?.tiempoCeremoniaPodio || 0) : 0;
+    const enParrilla = Boolean(esKarts && estadoSandbox.experienciaActual?.enParrillaActiva);
     const firmaKarts = ec
-        ? `${ec.velocidadKmH}|${ec.vueltaActual || 1}/${ec.totalVueltas || 2}|${ec.checkpointActual}|${ec.tiempoVuelta.toFixed(1)}|${estadoJugador.mejorVueltaKart}|${ec.bannerMensaje}|${tablaKarts?.size || 0}|${estadoControles.modoCeremoniaPodio}`
+        ? `${ec.velocidadKmH}|${ec.vueltaActual || 1}/${ec.totalVueltas || 2}|${ec.checkpointActual}|${ec.tiempoVuelta.toFixed(1)}|${estadoJugador.mejorVueltaKart}|${ec.bannerMensaje}|${Math.ceil(ec.cuentaRegresiva || 0)}|${ec.enZonaSalida}|${enParrilla}|${tablaKarts?.size || 0}|${estadoControles.modoCeremoniaPodio}|${segsPodio}`
         : '';
 
     const firmaActual = [
@@ -519,6 +721,7 @@ export function actualizarHUD() {
         firmaKarts,
         estadoControles.modoTetrisActivo,
         estadoControles.asientoTetrisActual,
+        estadoControles.pantallaBienvenidaActiva,
         estadoJugador.mejorPuntajeTetris
     ].join('|');
 
@@ -537,8 +740,9 @@ export function actualizarHUD() {
     const popoverBloques = el('popover-bloques');
     const hudKarts = el('hud-karts');
     const btnToggleKart = el('btn-toggle-kart');
-    const popoverKart = el('popover-kart');
-    const bannerKarts = el('banner-conteo-karts');
+    const bannerKarts = el('banner-conteo-kart');
+    const textoConteoKart = el('texto-conteo-kart');
+    const btnCancelarSalida = el('btn-cancelar-salida');
     void el('hotbar-bloques');
 
     if (hudApodo) hudApodo.textContent = estadoJugador.apodo;
@@ -546,6 +750,7 @@ export function actualizarHUD() {
     if (hudXpBarra) hudXpBarra.style.width = `${pctXp}%`;
     if (hudMonedas) hudMonedas.textContent = String(estadoJugador.monedas);
     if (hudExperiencia) hudExperiencia.textContent = nombreExp;
+    renderizarResumenJugador();
 
     if (indicadorRed) {
         if (estadoRed.conectado) {
@@ -584,7 +789,7 @@ export function actualizarHUD() {
     }
 
     if (hudKarts && btnToggleKart) {
-        hudKarts.classList.toggle('oculto', !esKarts);
+        hudKarts.classList.toggle('oculto', !esKarts || estadoControles.modoCeremoniaPodio);
         btnToggleKart.classList.toggle('oculto', !esKarts || estadoControles.modoCeremoniaPodio);
         if (estadoControles.modoCeremoniaPodio) {
             alternarGarajeKart(false);
@@ -602,12 +807,25 @@ export function actualizarHUD() {
             if (mEl) mEl.textContent = `Mejor: ${formatearTiempoCarrera(estadoJugador.mejorVueltaKart)}`;
 
             if (bannerKarts) {
-                if (ec.bannerMensaje) {
-                    bannerKarts.textContent = ec.bannerMensaje;
+                const mostrarConteo = Boolean(!estadoControles.modoCeremoniaPodio && ec.bannerMensaje);
+                if (mostrarConteo) {
+                    if (textoConteoKart) {
+                        textoConteoKart.textContent = ec.bannerMensaje;
+                    } else {
+                        bannerKarts.textContent = ec.bannerMensaje;
+                    }
                     bannerKarts.classList.remove('oculto');
                 } else {
                     bannerKarts.classList.add('oculto');
                 }
+            }
+            if (btnCancelarSalida) {
+                const puedeAbortar = Boolean(
+                    !estadoControles.modoCeremoniaPodio &&
+                    ec.cuentaRegresiva > 0 &&
+                    (ec.enZonaSalida || enParrilla)
+                );
+                btnCancelarSalida.classList.toggle('oculto', !puedeAbortar);
             }
 
             if (rankEl && tablaKarts) {
@@ -622,10 +840,13 @@ export function actualizarHUD() {
         } else {
             alternarGarajeKart(false);
             bannerKarts?.classList.add('oculto');
+            btnCancelarSalida?.classList.add('oculto');
         }
     }
 
+    renderizarBannerPodioF1(esKarts);
     renderizarOverlayTetris();
+    sincronizarVisibilidadControlesMoviles();
 }
 
 /**
@@ -637,7 +858,8 @@ function renderizarOverlayTetris() {
     if (pantallaTetris) {
         pantallaTetris.classList.toggle('oculto', !activo);
     }
-    el('btn-menu-dona')?.classList.toggle('oculto', activo);
+    el('hud-superior')?.classList.toggle('oculto', activo);
+    sincronizarVisibilidadControlesMoviles();
     if (!activo) return;
 
     const info = estadoSandbox.experienciaActual?.obtenerEstadoHUDTetris?.();
@@ -711,17 +933,7 @@ function vincularControlesEntrada() {
 
         if (e.code === 'Tab') {
             e.preventDefault();
-            const overlay = el('menu-dona-overlay');
-            if (overlay) {
-                const estabaOculto = overlay.classList.contains('oculto');
-                if (estabaOculto) {
-                    cerrarPanelesFlotantes();
-                    overlay.classList.remove('oculto');
-                } else {
-                    overlay.classList.add('oculto');
-                }
-                reproducirSonido('interaccion');
-            }
+            alternarMenuUnificado();
             return;
         }
 
@@ -748,7 +960,17 @@ function vincularControlesEntrada() {
             alternarGarajeKart();
             reproducirSonido('interaccion');
         } else if (e.code === 'Escape') {
-            cerrarPanelesFlotantes();
+            const hayAbierto =
+                !el('menu-principal-unificado')?.classList.contains('oculto') ||
+                !el('panel-gestos')?.classList.contains('oculto') ||
+                !el('panel-chat-rapido')?.classList.contains('oculto') ||
+                !el('popover-bloques')?.classList.contains('oculto') ||
+                estadoControles.garajeKartAbierto;
+            if (hayAbierto) {
+                cerrarPanelesFlotantes();
+            } else {
+                alternarMenuUnificado();
+            }
         } else if (
             estadoJugador.experienciaActiva === 'construccion' &&
             /^Digit[1-8]$/.test(e.code)
@@ -774,6 +996,7 @@ function vincularControlesEntrada() {
     });
 
     // Órbita de cámara o rotación en vivo del avatar al arrastrar sobre el lienzo 3D
+    // Soporta touch simultáneo en la mitad derecha (55%) mientras el pulgar izquierdo usa el joystick dinámico
     const lienzo = el('lienzo-3d');
     if (lienzo) {
         let pointerCamara = null;
@@ -781,6 +1004,14 @@ function vincularControlesEntrada() {
         let prevY = 0;
 
         lienzo.addEventListener('pointerdown', (e) => {
+            if (e.pointerId === pointerJoystickActivo) return;
+            if (
+                e.pointerType === 'touch' &&
+                !estadoControles.modoPreviewAvatar &&
+                e.clientX < window.innerWidth * 0.45
+            ) {
+                return;
+            }
             el('popover-bloques')?.classList.add('oculto');
             el('btn-toggle-bloques')?.setAttribute('aria-expanded', 'false');
             alternarGarajeKart(false);
@@ -804,6 +1035,7 @@ function vincularControlesEntrada() {
             if (estadoControles.modoPreviewAvatar) {
                 estadoControles.anguloPreviewAvatar -= dx * 0.01;
             } else {
+                estadoControles.orbitaManualActiva = true;
                 estadoControles.tiempoOrbitaManual = 2.0;
                 estadoControles.anguloCamaraY -= dx * 0.006;
                 estadoControles.anguloCamaraPitch = Math.max(
@@ -823,19 +1055,20 @@ function vincularControlesEntrada() {
         window.addEventListener('pointercancel', soltarCamara);
     }
 
-    // Joystick virtual táctil
-    const zonaJoystick = el('zona-joystick');
+    // Joystick flotante dinámico estilo Genshin / Fortnite en el 45% izquierdo (zona muerta 12%, auto-sprint > 85%)
+    const zonaJoystick = el('zona-joystick-dinamico');
+    const baseJoystick = el('base-joystick-dinamico');
     const palanca = el('palanca-joystick');
-    if (zonaJoystick && palanca) {
-        let pointerJoystick = null;
-        const radioMax = 42;
+    if (zonaJoystick && baseJoystick && palanca) {
+        const radioMax = 48;
+        const zonaMuerta = 0.12;
+        const umbralAutoSprint = 0.85;
+        let anclaX = 0;
+        let anclaY = 0;
 
         const actualizarJoystick = (clientX, clientY) => {
-            const rect = zonaJoystick.getBoundingClientRect();
-            const centroX = rect.left + rect.width / 2;
-            const centroY = rect.top + rect.height / 2;
-            let dx = clientX - centroX;
-            let dy = clientY - centroY;
+            let dx = clientX - anclaX;
+            let dy = clientY - anclaY;
             const dist = Math.hypot(dx, dy);
             if (dist > radioMax) {
                 dx = (dx / dist) * radioMax;
@@ -843,41 +1076,76 @@ function vincularControlesEntrada() {
             }
 
             palanca.style.transform = `translate(${dx}px, ${dy}px)`;
-            estadoControles.joystick.x = dx / radioMax;
-            estadoControles.joystick.y = -dy / radioMax;
+            const norm = Math.min(1, dist / radioMax);
+            if (norm <= zonaMuerta || dist === 0) {
+                estadoControles.joystick.x = 0;
+                estadoControles.joystick.y = 0;
+                estadoControles.joystick.magnitud = 0;
+                estadoControles.joystick.activo = false;
+                estadoControles.autoSprintJoystick = false;
+                baseJoystick.classList.remove('auto-sprint');
+                return;
+            }
+
+            const mag = (norm - zonaMuerta) / (1 - zonaMuerta);
+            estadoControles.joystick.x = (dx / dist) * mag;
+            estadoControles.joystick.y = (-dy / dist) * mag;
+            estadoControles.joystick.magnitud = mag;
             estadoControles.joystick.activo = true;
+            estadoControles.autoSprintJoystick = norm > umbralAutoSprint;
+            baseJoystick.classList.toggle('auto-sprint', estadoControles.autoSprintJoystick);
         };
 
         zonaJoystick.addEventListener('pointerdown', (e) => {
+            if (pointerJoystickActivo !== null) return;
             e.preventDefault();
             e.stopPropagation();
-            pointerJoystick = e.pointerId;
+            pointerJoystickActivo = e.pointerId;
+
+            const rectZona = zonaJoystick.getBoundingClientRect();
+            const radioBase = 54;
+            const localX = Math.max(radioBase + 4, Math.min(rectZona.width - radioBase - 4, e.clientX - rectZona.left));
+            const localY = Math.max(radioBase + 4, Math.min(rectZona.height - radioBase - 4, e.clientY - rectZona.top));
+
+            anclaX = rectZona.left + localX;
+            anclaY = rectZona.top + localY;
+            baseJoystick.style.left = `${localX - radioBase}px`;
+            baseJoystick.style.top = `${localY - radioBase}px`;
+            baseJoystick.style.bottom = 'auto';
+            baseJoystick.classList.add('activo');
             actualizarJoystick(e.clientX, e.clientY);
         });
 
         window.addEventListener('pointermove', (e) => {
-            if (e.pointerId === pointerJoystick) {
+            if (e.pointerId === pointerJoystickActivo) {
                 actualizarJoystick(e.clientX, e.clientY);
             }
         });
 
         const resetJoystick = (e) => {
-            if (e.pointerId !== pointerJoystick) return;
-            pointerJoystick = null;
+            if (e.pointerId !== pointerJoystickActivo) return;
+            pointerJoystickActivo = null;
             palanca.style.transform = 'translate(0px, 0px)';
+            baseJoystick.classList.remove('activo', 'auto-sprint');
+            baseJoystick.style.left = '';
+            baseJoystick.style.top = '';
+            baseJoystick.style.bottom = '';
             estadoControles.joystick.x = 0;
             estadoControles.joystick.y = 0;
+            estadoControles.joystick.magnitud = 0;
             estadoControles.joystick.activo = false;
+            estadoControles.autoSprintJoystick = false;
         };
         window.addEventListener('pointerup', resetJoystick);
         window.addEventListener('pointercancel', resetJoystick);
     }
 
-    // Botones móviles
+    // Botones móviles en arco ergonómico del pulgar derecho
     const btnSaltar = el('btn-movil-saltar');
     if (btnSaltar) {
         btnSaltar.addEventListener('pointerdown', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             if (estadoJugador.enVehiculo) {
                 estadoControles.acelerarKart = true;
             } else {
@@ -896,6 +1164,7 @@ function vincularControlesEntrada() {
     if (btnAccion) {
         btnAccion.addEventListener('pointerdown', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             if (estadoJugador.enVehiculo) {
                 estadoControles.frenarKart = true;
             } else {
@@ -911,6 +1180,9 @@ function vincularControlesEntrada() {
 
     const btnSprint = el('btn-movil-sprint');
     if (btnSprint) {
+        btnSprint.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+        });
         btnSprint.addEventListener('click', () => {
             if (estadoJugador.enVehiculo) {
                 estadoControles.derraparKart = !estadoControles.derraparKart;
@@ -924,97 +1196,101 @@ function vincularControlesEntrada() {
 }
 
 /**
- * Vincula el Menú Radial Dona (5 sectores) y sus subpaneles sociales/red.
+ * Vincula la barra HUD estilo Roblox, el Menú Principal Unificado (4 pestañas) y subpaneles sociales.
+ * @param {Function} reabrirBienvenida
  */
-function vincularMenuRadialYSocial() {
-    const overlayDona = el('menu-dona-overlay');
+function vincularMenuRobloxYSocial(reabrirBienvenida) {
+    const menuUnificado = el('menu-principal-unificado');
 
-    el('btn-menu-dona')?.addEventListener('click', () => {
-        const oculto = overlayDona?.classList.contains('oculto');
-        if (oculto) {
+    el('btn-hud-menu')?.addEventListener('click', () => {
+        alternarMenuUnificado();
+    });
+
+    el('btn-cerrar-menu-unificado')?.addEventListener('click', () => {
+        cerrarPanelesFlotantes();
+        reproducirSonido('interaccion');
+    });
+
+    menuUnificado?.addEventListener('click', (e) => {
+        if (e.target === menuUnificado && !menuUnificado.classList.contains('modo-dock-avatar')) {
             cerrarPanelesFlotantes();
-            overlayDona.classList.remove('oculto');
-        } else {
-            overlayDona?.classList.add('oculto');
+        }
+    });
+
+    el('tab-menu-sala')?.addEventListener('click', () => cambiarTabMenuUnificado('sala'));
+    el('tab-menu-avatar')?.addEventListener('click', () => cambiarTabMenuUnificado('avatar'));
+    el('tab-menu-mochila')?.addEventListener('click', () => cambiarTabMenuUnificado('mochila'));
+    el('tab-menu-jugador')?.addEventListener('click', () => cambiarTabMenuUnificado('jugador'));
+
+    const contFiltrosMochila = el('filtros-mochila');
+    if (contFiltrosMochila) {
+        for (const btnFiltro of contFiltrosMochila.querySelectorAll('[data-filtro-mochila]')) {
+            btnFiltro.addEventListener('click', () => {
+                filtroMochilaActivo = btnFiltro.getAttribute('data-filtro-mochila') || 'todos';
+                for (const b of contFiltrosMochila.querySelectorAll('[data-filtro-mochila]')) {
+                    b.classList.toggle('activo', b === btnFiltro);
+                }
+                reproducirSonido('interaccion');
+                renderizarInventario();
+            });
+        }
+    }
+
+    el('btn-hud-gestos')?.addEventListener('click', () => {
+        const panelGestos = el('panel-gestos');
+        const estabaOculto = panelGestos?.classList.contains('oculto');
+        cerrarPanelesFlotantes();
+        if (estabaOculto) {
+            panelGestos.classList.remove('oculto');
+            el('btn-hud-gestos')?.classList.add('activo');
         }
         reproducirSonido('interaccion');
     });
 
-    el('btn-cerrar-dona')?.addEventListener('click', () => {
-        overlayDona?.classList.add('oculto');
-        reproducirSonido('interaccion');
-    });
-
-    overlayDona?.addEventListener('click', (e) => {
-        if (e.target === overlayDona) {
-            overlayDona.classList.add('oculto');
+    el('btn-hud-chat')?.addEventListener('click', () => {
+        const panelChat = el('panel-chat-rapido');
+        const estabaOculto = panelChat?.classList.contains('oculto');
+        cerrarPanelesFlotantes();
+        if (estabaOculto) {
+            panelChat.classList.remove('oculto');
+            el('btn-hud-chat')?.classList.add('activo');
+            setTimeout(() => el('input-chat-rapido')?.focus(), 40);
         }
-    });
-
-    el('dona-btn-avatar')?.addEventListener('click', () => {
-        alternarEstudioAvatar(true);
-    });
-
-    el('dona-btn-inventario')?.addEventListener('click', () => {
-        cerrarPanelesFlotantes();
-        renderizarInventario();
-        el('modal-inventario')?.classList.remove('oculto');
         reproducirSonido('interaccion');
-    });
-
-    el('dona-btn-gestos')?.addEventListener('click', () => {
-        cerrarPanelesFlotantes();
-        el('panel-gestos-dona')?.classList.remove('oculto');
-        reproducirSonido('interaccion');
-    });
-
-    el('dona-btn-chat')?.addEventListener('click', () => {
-        cerrarPanelesFlotantes();
-        el('panel-chat-rapido')?.classList.remove('oculto');
-        reproducirSonido('interaccion');
-    });
-
-    el('dona-btn-sala')?.addEventListener('click', () => {
-        cerrarPanelesFlotantes();
-        el('panel-red')?.classList.remove('oculto');
-        reproducirSonido('interaccion');
-    });
-
-    el('indicador-estado-red')?.addEventListener('click', () => {
-        const panelRed = el('panel-red');
-        const abierto = panelRed && !panelRed.classList.contains('oculto');
-        cerrarPanelesFlotantes();
-        if (!abierto) panelRed?.classList.remove('oculto');
     });
 
     el('btn-cerrar-gestos')?.addEventListener('click', () => {
-        el('panel-gestos-dona')?.classList.add('oculto');
+        el('panel-gestos')?.classList.add('oculto');
+        el('btn-hud-gestos')?.classList.remove('activo');
     });
 
     el('btn-cerrar-chat')?.addEventListener('click', () => {
         el('panel-chat-rapido')?.classList.add('oculto');
+        el('btn-hud-chat')?.classList.remove('activo');
     });
 
-    el('btn-cerrar-red')?.addEventListener('click', () => {
-        el('panel-red')?.classList.add('oculto');
+    el('btn-cambiar-jugador')?.addEventListener('click', () => {
+        cerrarPanelesFlotantes();
+        desconectarSalaMultijugador(contextoGlobal?.escena);
+        reabrirBienvenida();
     });
 
     // Emotes
     el('btn-gesto-saludar')?.addEventListener('click', () => {
         dispararGestoSocial('saludar');
-        el('panel-gestos-dona')?.classList.add('oculto');
+        cerrarPanelesFlotantes();
     });
     el('btn-gesto-bailar')?.addEventListener('click', () => {
         dispararGestoSocial('bailar');
-        el('panel-gestos-dona')?.classList.add('oculto');
+        cerrarPanelesFlotantes();
     });
     el('btn-gesto-celebrar')?.addEventListener('click', () => {
         dispararGestoSocial('celebrar');
-        el('panel-gestos-dona')?.classList.add('oculto');
+        cerrarPanelesFlotantes();
     });
     el('btn-gesto-sentarse')?.addEventListener('click', () => {
         dispararGestoSocial('sentarse');
-        el('panel-gestos-dona')?.classList.add('oculto');
+        cerrarPanelesFlotantes();
     });
 
     // Chat rápido
@@ -1022,7 +1298,7 @@ function vincularMenuRadialYSocial() {
         btn.addEventListener('click', () => {
             const frase = btn.getAttribute('data-frase') || btn.textContent;
             enviarChatRapido(frase);
-            el('panel-chat-rapido')?.classList.add('oculto');
+            cerrarPanelesFlotantes();
         });
     }
 
@@ -1031,13 +1307,13 @@ function vincularMenuRadialYSocial() {
         if (!inputChat) return;
         enviarChatRapido(inputChat.value);
         inputChat.value = '';
-        el('panel-chat-rapido')?.classList.add('oculto');
+        cerrarPanelesFlotantes();
     });
     inputChat?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             enviarChatRapido(inputChat.value);
             inputChat.value = '';
-            el('panel-chat-rapido')?.classList.add('oculto');
+            cerrarPanelesFlotantes();
         }
     });
 
@@ -1077,16 +1353,22 @@ function esDispositivoMovilTactil() {
 function solicitarPantallaCompletaSeguro() {
     try {
         const raiz = document.documentElement;
-        if (!raiz) return;
-        const metodo = raiz.requestFullscreen || raiz.webkitRequestFullscreen;
-        if (typeof metodo === 'function') {
-            const promesa = metodo.call(raiz);
-            if (promesa && typeof promesa.catch === 'function') {
-                promesa.catch(() => {});
+        if (raiz) {
+            const metodo = raiz.requestFullscreen || raiz.webkitRequestFullscreen;
+            if (typeof metodo === 'function') {
+                const promesa = metodo.call(raiz);
+                if (promesa && typeof promesa.catch === 'function') {
+                    promesa.catch(() => {});
+                }
             }
         }
     } catch (_err) {
         // Ignorar en navegadores sin soporte Fullscreen API (e.g., iOS Safari estándar)
+    }
+    try {
+        window.screen?.orientation?.lock?.('landscape')?.catch?.(() => {});
+    } catch (_err) {
+        // Ignorar en navegadores sin bloqueo programático de orientación
     }
 }
 
@@ -1186,12 +1468,13 @@ function inicializarPantallaBienvenida() {
         guardarEstadoLocal();
         estadoControles.pantallaBienvenidaActiva = false;
         pantalla.classList.add('oculto');
+        sincronizarVisibilidadControlesMoviles();
         mostrarError('');
-        mostrarNotificacion('Conectando a Sala Pública...', 'info');
         const tituloMusica = seleccionarMusicaExperiencia(estadoJugador.experienciaActiva || 'lobby');
-        if (!estaMusicaSilenciada()) {
-            mostrarNotificacion(`🎵 ${tituloMusica}`, 'info');
-        }
+        const textoEntrada = !estaMusicaSilenciada()
+            ? `Sala Pública · 🎵 ${tituloMusica}`
+            : 'Conectando a Sala Pública...';
+        mostrarNotificacion(textoEntrada, 'info');
         conectarSalaMultijugador('SALA-PUBLICA');
         actualizarHUD();
     };
@@ -1400,6 +1683,7 @@ function inicializarPantallaBienvenida() {
     return (mensajeError = '') => {
         estadoControles.pantallaBienvenidaActiva = true;
         pantalla.classList.remove('oculto');
+        sincronizarVisibilidadControlesMoviles();
         cambiarTab('existente');
         if (mensajeError) mostrarError(mensajeError);
         cargarPerfiles();
@@ -1435,8 +1719,8 @@ export function inicializarInterfaz(contextoSandbox) {
 
     const reabrirBienvenida = inicializarPantallaBienvenida();
 
-    el('btn-cerrar-avatar')?.addEventListener('click', () => {
-        alternarEstudioAvatar(false);
+    el('btn-cerrar-girar-pantalla')?.addEventListener('click', () => {
+        el('aviso-girar-pantalla')?.classList.add('descartado');
     });
 
     el('btn-exportar-perfil')?.addEventListener('click', () => {
@@ -1463,11 +1747,6 @@ export function inicializarInterfaz(contextoSandbox) {
         renderizarEstudioAvatar();
         renderizarInventario();
         mostrarNotificacion('Perfil e inventario restaurados.', 'exito');
-    });
-
-    el('btn-cerrar-inventario')?.addEventListener('click', () => {
-        el('modal-inventario')?.classList.add('oculto');
-        reproducirSonido('interaccion');
     });
 
     // Popover colapsable de construcción voxel
@@ -1509,11 +1788,17 @@ export function inicializarInterfaz(contextoSandbox) {
         el('btn-toggle-bloques')?.setAttribute('aria-expanded', 'false');
     });
 
-    // Popover colapsable del Garaje Kart
+    // Popover colapsable del Garaje Kart y botón Abortar Salida
     el('btn-toggle-kart')?.addEventListener('click', (e) => {
         e.stopPropagation();
         alternarGarajeKart();
         reproducirSonido('interaccion');
+    });
+
+    el('btn-cancelar-salida')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        estadoSandbox.experienciaActual?.cancelarSalidaCarrera?.('boton');
+        actualizarHUD();
     });
 
     document.addEventListener('pointerdown', (e) => {
@@ -1629,18 +1914,18 @@ export function inicializarInterfaz(contextoSandbox) {
         } else if (evento === 'error_sala' && detalle?.codigo === 'APODO_EN_USO') {
             reabrirBienvenida(detalle.error || 'Ese jugador ya está conectado en la sala.');
         } else if (evento === 'experiencia_cambiada' && detalle?.nombre) {
-            mostrarNotificacion(`Entraste a: ${detalle.nombre}`, 'exito');
             const tituloMusica = seleccionarMusicaExperiencia(detalle.id || estadoJugador.experienciaActiva);
-            if (!estaMusicaSilenciada() && !estadoControles.pantallaBienvenidaActiva) {
-                mostrarNotificacion(`🎵 ${tituloMusica}`, 'info');
-            }
+            const textoToast = !estaMusicaSilenciada() && !estadoControles.pantallaBienvenidaActiva
+                ? `${detalle.nombre} · 🎵 ${tituloMusica}`
+                : `Entraste a: ${detalle.nombre}`;
+            mostrarNotificacion(textoToast, 'exito');
         } else if (evento === 'tetris_cambio') {
             renderizarOverlayTetris();
         }
         actualizarHUD();
     });
 
-    vincularMenuRadialYSocial();
+    vincularMenuRobloxYSocial(reabrirBienvenida);
     renderizarHotbarBloques();
     vincularControlesEntrada();
     actualizarHUD();

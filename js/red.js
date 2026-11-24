@@ -352,7 +352,7 @@ function procesarMensajeServidor(raw) {
             break;
 
         case 'evento_experiencia': {
-            if (msg.origenId === estadoJugador.id) break;
+            if (msg.origenId === estadoJugador.id && !msg.datos?.servidorAutoritativo) break;
             const accionExp = msg.accion || msg.subtipo || msg.datos?.accion;
             if (msg.experienciaId === 'construccion' && accionExp === 'estado_parcela_completo') {
                 const bloques = msg.bloques || msg.datos?.bloques;
@@ -584,6 +584,19 @@ export function enviarEventoExperiencia(subtipo, datos = {}) {
         subtipo,
         datos
     }));
+}
+
+/**
+ * Notifica a la sala que el corredor local abortó la parrilla de salida de Karts.
+ * @param {object} [datos]
+ */
+export function enviarCancelacionSalidaKart(datos = {}) {
+    enviarEventoExperiencia('cancelar_salida_kart', {
+        accion: 'cancelar_salida_kart',
+        experienciaId: 'karts',
+        jugadorId: estadoJugador.id,
+        ...datos
+    });
 }
 
 /**

@@ -117,6 +117,7 @@ export function actualizarFisicaSandbox(dt, avatarLocal, configFisica = {}) {
 
     const esSprint =
         estadoControles.sprintActivo ||
+        estadoControles.autoSprintJoystick ||
         teclas.has('ShiftLeft') ||
         teclas.has('ShiftRight');
     const velocidadBase = (esSprint ? VELOCIDAD_SPRINT : VELOCIDAD_CAMINAR) * multVel;

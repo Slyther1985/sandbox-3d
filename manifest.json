@@ -4,7 +4,7 @@
   "description": "Plataforma Sandbox 3D multijugador en navegador con Lobby, Construcción Voxel, Turbo Karts y Tetris 3D.",
   "start_url": "./",
   "display": "fullscreen",
-  "orientation": "any",
+  "orientation": "landscape",
   "theme_color": "#0e1424",
   "background_color": "#0e1424",
   "icons": [

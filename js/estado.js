@@ -69,9 +69,10 @@ export const estadoSandbox = {
 
 export const estadoControles = {
     teclas: new Set(),
-    joystick: { x: 0, y: 0, activo: false },
+    joystick: { x: 0, y: 0, magnitud: 0, activo: false },
     saltarPresionado: false,
     sprintActivo: false,
+    autoSprintJoystick: false,
     anguloCamaraY: 0,
     anguloCamaraPitch: 0.32,
     tiempoOrbitaManual: 0,

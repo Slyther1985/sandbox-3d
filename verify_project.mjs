@@ -204,9 +204,15 @@ if (fs.existsSync(rutaHtml) && fs.existsSync(rutaInterfaz)) {
         'selector-piel',
         'selector-torso',
         'selector-piernas',
-        'btn-menu-dona',
-        'menu-dona-overlay',
-        'panel-gestos-dona',
+        'btn-hud-menu',
+        'btn-hud-chat',
+        'btn-hud-gestos',
+        'menu-principal-unificado',
+        'tab-menu-sala',
+        'tab-menu-avatar',
+        'tab-menu-mochila',
+        'tab-menu-jugador',
+        'panel-gestos',
         'panel-chat-rapido',
         'input-chat-rapido',
         'btn-enviar-chat',
@@ -214,6 +220,9 @@ if (fs.existsSync(rutaHtml) && fs.existsSync(rutaInterfaz)) {
         'btn-gesto-bailar',
         'btn-gesto-celebrar',
         'btn-gesto-sentarse',
+        'btn-cambiar-jugador',
+        'zona-joystick-dinamico',
+        'aviso-girar-pantalla',
         'btn-toggle-bloques',
         'popover-bloques',
         'hud-karts',
@@ -252,7 +261,11 @@ if (fs.existsSync(rutaHtml) && fs.existsSync(rutaInterfaz)) {
         'btn-crear-jugador',
         'btn-entrar-parque',
         'btn-musica',
-        'btn-pantalla-completa'
+        'btn-pantalla-completa',
+        'banner-podio-f1',
+        'banner-conteo-kart',
+        'btn-cancelar-salida',
+        'filtros-mochila'
     ]);
     const codigoInterfaz = fs.readFileSync(rutaInterfaz, 'utf8');
     const regexEl = /\bel\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
@@ -277,8 +290,10 @@ if (fs.existsSync(rutaHtml) && fs.existsSync(rutaInterfaz)) {
 
     if (faltantesDom.length > 0) {
         registrarError(`IDs del DOM referenciados en JS pero ausentes en index.html: ${faltantesDom.join(', ')}`);
+    } else if (idsHtml.has('btn-menu-dona') || idsHtml.has('menu-dona-overlay') || idsHtml.has('banner-conteo-karts')) {
+        registrarError('index.html aún contiene IDs obsoletos (btn-menu-dona / menu-dona-overlay / banner-conteo-karts).');
     } else {
-        registrarOk(`Sincronización DOM verificada (${idsReferenciados.size} IDs presentes en index.html).`);
+        registrarOk(`Sincronización DOM verificada (${idsReferenciados.size} IDs presentes en index.html, menú dona/banner conteo obsoletos removidos).`);
     }
 }
 
@@ -583,6 +598,101 @@ try {
     }
 } catch (err) {
     registrarError(`No se pudo validar Fase 6 Parte 2: ${err.message}`);
+}
+
+// 6f. Verificar Fase 7: Spring-Arm Universal, Lobby Siempre Atrás, HUD Roblox y Controles Móviles Landscape
+try {
+    const manifestJson = JSON.parse(fs.readFileSync(path.join(RAIZ, 'manifest.json'), 'utf8'));
+    const srcMain = fs.readFileSync(path.join(RAIZ, 'js', 'main.js'), 'utf8');
+    const srcLobby = fs.readFileSync(path.join(RAIZ, 'js', 'experiencias', 'lobbyCentral.js'), 'utf8');
+    const srcKarts = fs.readFileSync(path.join(RAIZ, 'js', 'experiencias', 'arenaTurboKarts.js'), 'utf8');
+    const srcFisica = fs.readFileSync(path.join(RAIZ, 'js', 'fisicaSandbox.js'), 'utf8');
+    const srcInterfaz = fs.readFileSync(path.join(RAIZ, 'js', 'interfaz.js'), 'utf8');
+    const srcCss = fs.readFileSync(path.join(RAIZ, 'css', 'estilos.css'), 'utf8');
+
+    const springArmOk =
+        /export\s+function\s+resolverColisionCamara\s*\(/.test(srcMain) &&
+        /resolverColisionCamara\s*\(\s*lookObjetivo/.test(srcMain) &&
+        /ignorarColisionCamara\s*=\s*true/.test(srcKarts) &&
+        /cartelPaddock\.position\.set\([^,]+,\s*6\.2/.test(srcKarts);
+
+    const lobbySiempreAtrasOk =
+        /!estadoControles\.orbitaManualActiva/.test(srcLobby) &&
+        !/tiempoOrbitaManual\s*<=\s*0/.test(srcLobby);
+
+    const movilLandscapeOk =
+        manifestJson?.display === 'fullscreen' &&
+        manifestJson?.orientation === 'landscape' &&
+        /autoSprintJoystick/.test(srcFisica) &&
+        /autoSprintJoystick/.test(srcInterfaz) &&
+        /zona-joystick-dinamico/.test(srcInterfaz) &&
+        /menu-principal-unificado/.test(srcInterfaz) &&
+        /@media\s*\(\s*orientation:\s*landscape\s*\)\s*and\s*\(\s*max-height:\s*540px\s*\)/.test(srcCss) &&
+        /aviso-girar-pantalla/.test(srcCss);
+
+    if (!springArmOk || !lobbySiempreAtrasOk || !movilLandscapeOk) {
+        registrarError(
+            `Falta configuración Fase 7 (springArm=${springArmOk}, lobbyAtras=${lobbySiempreAtrasOk}, movilLandscape=${movilLandscapeOk}).`
+        );
+    } else {
+        registrarOk(
+            'Fase 7 verificada: resolverColisionCamara(), Lobby siempre detrás, HUD Roblox/4 tabs y controles landscape Genshin/Fortnite.'
+        );
+    }
+} catch (err) {
+    registrarError(`No se pudo validar Fase 7: ${err.message}`);
+}
+
+// 6g. Verificar Fase 8: Podio Broadcast F1, Salida Abortable 10s, Garaje Carrusel, Encuadre Avatar y Mochila Escalable
+try {
+    const srcHtml = fs.readFileSync(path.join(RAIZ, 'index.html'), 'utf8');
+    const srcCss = fs.readFileSync(path.join(RAIZ, 'css', 'estilos.css'), 'utf8');
+    const srcInterfaz = fs.readFileSync(path.join(RAIZ, 'js', 'interfaz.js'), 'utf8');
+    const srcKarts = fs.readFileSync(path.join(RAIZ, 'js', 'experiencias', 'arenaTurboKarts.js'), 'utf8');
+    const srcRed = fs.readFileSync(path.join(RAIZ, 'js', 'red.js'), 'utf8');
+    const srcMain = fs.readFileSync(path.join(RAIZ, 'js', 'main.js'), 'utf8');
+    const srcSrv = fs.readFileSync(path.join(RAIZ, 'server', 'index.js'), 'utf8');
+
+    const podioYConteoF1Ok =
+        /id=["']banner-podio-f1["']/.test(srcHtml) &&
+        /id=["']banner-conteo-kart["']/.test(srcHtml) &&
+        /id=["']btn-cancelar-salida["']/.test(srcHtml) &&
+        /renderizarBannerPodioF1/.test(srcInterfaz) &&
+        /obtenerEstadoPodioF1/.test(srcKarts) &&
+        /skewX\(-8deg\)/.test(srcCss) &&
+        /entradaDerrapeF1/.test(srcCss);
+
+    const salidaAbortableOk =
+        /cancelarSalidaCarrera/.test(srcKarts) &&
+        /cancelarSalidaCarrera/.test(srcInterfaz) &&
+        /cancelar_salida_kart/.test(srcKarts) &&
+        /enviarCancelacionSalidaKart/.test(srcRed) &&
+        /cancelar_salida_kart/.test(srcSrv) &&
+        /parrillasKartsSalas/.test(srcSrv);
+
+    const garajeYEncuadreOk =
+        /poblarCarrusel/.test(srcInterfaz) &&
+        /btn-carrusel-flecha/.test(srcCss) &&
+        /desplazamientoIzq/.test(srcKarts) &&
+        /desplazamientoDer/.test(srcMain) &&
+        /sincronizarVisibilidadControlesMoviles/.test(srcInterfaz);
+
+    const mochilaEscalableOk =
+        /id=["']filtros-mochila["']/.test(srcHtml) &&
+        /data-filtro-mochila/.test(srcInterfaz) &&
+        /minmax\(128px,\s*1fr\)/.test(srcCss);
+
+    if (!podioYConteoF1Ok || !salidaAbortableOk || !garajeYEncuadreOk || !mochilaEscalableOk) {
+        registrarError(
+            `Falta configuración Fase 8 (podioF1=${podioYConteoF1Ok}, abortable=${salidaAbortableOk}, garajeEncuadre=${garajeYEncuadreOk}, mochila=${mochilaEscalableOk}).`
+        );
+    } else {
+        registrarOk(
+            'Fase 8 verificada: Podio broadcast F1, salida 10s abortable (cancelar_salida_kart), garaje carrusel sin scroll, encuadre Avatar 3D y mochila con filtros.'
+        );
+    }
+} catch (err) {
+    registrarError(`No se pudo validar Fase 8: ${err.message}`);
 }
 
 // 7. Verificar server/index.js (/health, perfiles.json, rutas HTTP/WS y rechazo de duplicados)

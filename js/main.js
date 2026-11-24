@@ -7,6 +7,7 @@ import { CONFIG_CAMARA } from './config.js';
 import {
     estadoControles,
     estadoJugador,
+    estadoRed,
     estadoSandbox,
     cargarEstadoLocal
 } from './estado.js';
@@ -23,6 +24,79 @@ import { LobbyCentral } from './experiencias/lobbyCentral.js';
 import { ZonaConstruccion } from './experiencias/zonaConstruccion.js';
 import { ArenaTurboKarts } from './experiencias/arenaTurboKarts.js';
 import { SalaTetris } from './experiencias/salaTetris.js';
+
+const _raycasterCamara = new THREE.Raycaster();
+const _dirCamara = new THREE.Vector3();
+const _posResueltaCamara = new THREE.Vector3();
+const _candidatosColisionCamara = [];
+const _objetosIgnoradosCamara = new Set();
+
+/**
+ * Recolecta mallas sólidas bloqueantes de la escena omitiendo avatares, sprites,
+ * partículas, cúpulas de cielo y elementos translúcidos no bloqueantes.
+ * @param {THREE.Object3D} nodo
+ * @param {Set<THREE.Object3D>} objetosIgnorados
+ * @param {THREE.Object3D[]} salida
+ */
+function recolectarMallasBloqueantes(nodo, objetosIgnorados, salida) {
+    if (!nodo || !nodo.visible) return;
+    if (objetosIgnorados && objetosIgnorados.has(nodo)) return;
+    if (nodo.userData?.ignorarColisionCamara === true) return;
+    if (typeof nodo.name === 'string' && nodo.name.startsWith('cupula_cielo')) return;
+    if (nodo.isSprite || nodo.isPoints || nodo.isLine || nodo.isLight) return;
+
+    if (nodo.isMesh) {
+        const mats = Array.isArray(nodo.material) ? nodo.material : [nodo.material];
+        const esBloqueante = mats.some(
+            (m) => m && !(m.transparent && (m.opacity < 0.55 || m.depthWrite === false))
+        );
+        if (esBloqueante) {
+            salida.push(nodo);
+        }
+    }
+
+    if (nodo.children && nodo.children.length > 0) {
+        for (let i = 0; i < nodo.children.length; i++) {
+            recolectarMallasBloqueantes(nodo.children[i], objetosIgnorados, salida);
+        }
+    }
+}
+
+/**
+ * Brazo resorte (spring-arm) universal: lanza un rayo desde `puntoMira` hacia `posicionDeseada`
+ * y acerca la cámara `0.45 m` por delante de cualquier geometría que obstruya la vista (mínimo `1.4 m`).
+ * @param {THREE.Vector3} puntoMira
+ * @param {THREE.Vector3} posicionDeseada
+ * @param {THREE.Scene} escena
+ * @param {Set<THREE.Object3D>} [objetosIgnorados]
+ * @returns {THREE.Vector3}
+ */
+export function resolverColisionCamara(puntoMira, posicionDeseada, escena, objetosIgnorados = _objetosIgnoradosCamara) {
+    _dirCamara.subVectors(posicionDeseada, puntoMira);
+    const distDeseada = _dirCamara.length();
+    if (distDeseada < 0.05 || !escena) {
+        return _posResueltaCamara.copy(posicionDeseada);
+    }
+
+    _dirCamara.divideScalar(distDeseada);
+    _candidatosColisionCamara.length = 0;
+    recolectarMallasBloqueantes(escena, objetosIgnorados, _candidatosColisionCamara);
+    if (_candidatosColisionCamara.length === 0) {
+        return _posResueltaCamara.copy(posicionDeseada);
+    }
+
+    _raycasterCamara.set(puntoMira, _dirCamara);
+    _raycasterCamara.near = 0.2;
+    _raycasterCamara.far = distDeseada;
+    const impactos = _raycasterCamara.intersectObjects(_candidatosColisionCamara, false);
+
+    if (impactos.length > 0 && impactos[0].distance < distDeseada) {
+        const distSegura = Math.max(1.4, impactos[0].distance - 0.45);
+        return _posResueltaCamara.copy(puntoMira).addScaledVector(_dirCamara, distSegura);
+    }
+
+    return _posResueltaCamara.copy(posicionDeseada);
+}
 
 function iniciarSandbox() {
     cargarEstadoLocal();
@@ -134,10 +208,15 @@ function iniciarSandbox() {
         cfgInicial.puntoMira.y,
         cfgInicial.puntoMira.z
     );
-    camara.position.set(
+    camObjetivo.set(
         cfgInicial.posicionObjetivo.x,
         cfgInicial.posicionObjetivo.y,
         cfgInicial.posicionObjetivo.z
+    );
+    _objetosIgnoradosCamara.clear();
+    _objetosIgnoradosCamara.add(avatarLocal);
+    camara.position.copy(
+        resolverColisionCamara(lookActual, camObjetivo, escena, _objetosIgnoradosCamara)
     );
     camara.lookAt(lookActual);
 
@@ -185,17 +264,20 @@ function iniciarSandbox() {
             const pz = estadoJugador.posicion.z;
             const rightX = Math.cos(yawPrev);
             const rightZ = -Math.sin(yawPrev);
-            const desplazamientoIzq = window.innerWidth > 760 ? -0.65 : 0;
+            const esHorizontal = window.innerWidth >= window.innerHeight || window.innerWidth > 640;
+            const desplazamientoDer = esHorizontal ? (window.innerWidth > 760 ? 1.05 : 0.95) : 0;
+            const offsetYCam = esHorizontal ? 1.85 : 1.75;
+            const offsetYLook = esHorizontal ? 1.48 : 1.1;
 
             camObjetivo.set(
-                px + Math.sin(yawPrev) * distPrev + rightX * desplazamientoIzq,
-                py + 1.9,
-                pz + Math.cos(yawPrev) * distPrev + rightZ * desplazamientoIzq
+                px + Math.sin(yawPrev) * distPrev + rightX * desplazamientoDer,
+                py + offsetYCam,
+                pz + Math.cos(yawPrev) * distPrev + rightZ * desplazamientoDer
             );
             lookObjetivo.set(
-                px + rightX * desplazamientoIzq,
-                py + 1.55,
-                pz + rightZ * desplazamientoIzq
+                px + rightX * desplazamientoDer,
+                py + offsetYLook,
+                pz + rightZ * desplazamientoDer
             );
             tasaSuavizado = 9;
         } else {
@@ -217,6 +299,24 @@ function iniciarSandbox() {
                 );
                 tasaSuavizado = cfgCamara.suavizado || 18;
                 fovObjetivo = cfgCamara.fov || CONFIG_CAMARA.fov;
+            }
+        }
+
+        if (!estadoControles.modoTetrisActivo && !estadoControles.modoCeremoniaPodio) {
+            _objetosIgnoradosCamara.clear();
+            _objetosIgnoradosCamara.add(avatarLocal);
+            for (const remoto of estadoRed.jugadoresRemotos.values()) {
+                if (remoto?.avatar) _objetosIgnoradosCamara.add(remoto.avatar);
+            }
+            const posSinObstaculo = resolverColisionCamara(
+                lookObjetivo,
+                camObjetivo,
+                escena,
+                _objetosIgnoradosCamara
+            );
+            if (posSinObstaculo.distanceToSquared(camObjetivo) > 0.002) {
+                camObjetivo.copy(posSinObstaculo);
+                tasaSuavizado = Math.max(tasaSuavizado, 24);
             }
         }
 

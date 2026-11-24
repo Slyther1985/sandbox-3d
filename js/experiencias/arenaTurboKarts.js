@@ -36,7 +36,7 @@ import {
     montarAvatarEnKart
 } from '../avatar.js';
 import { ExperienciaBase } from '../nucleoSandbox.js';
-import { enviarEstadoJugadorInmediato, enviarEventoExperiencia } from '../red.js';
+import { enviarCancelacionSalidaKart, enviarEstadoJugadorInmediato, enviarEventoExperiencia } from '../red.js';
 
 const ANCHO_PISTA = 8.4;
 const SEGMENTOS_PISTA = 200;
@@ -101,7 +101,13 @@ export class ArenaTurboKarts extends ExperienciaBase {
         this.impulsoLateral = { x: 0, z: 0 };
         this.chispasActivas = [];
 
-        // Estado de Ceremonia de Podio de 12 segundos
+        // Estado de Ceremonia de Podio de 12 segundos y Parrilla Cancelable
+        this.enParrillaActiva = false;
+        this.jugadoresEnParrilla = new Set();
+        this.vueltaRapidaCarrera = null;
+        this.tiempoMarcaLap1 = 0;
+        this.mejorVueltaLocalEnCarrera = null;
+        this.clasificacionPodioActiva = [];
         this.ceremoniaPodioActiva = false;
         this.tiempoCeremoniaPodio = 0;
         this.grupoCeremoniaPodio = null;
@@ -201,10 +207,22 @@ export class ArenaTurboKarts extends ExperienciaBase {
             CATALOGO_PIEZAS_KART.alerones.find((a) => a.id === configKart?.aleron) ||
             CATALOGO_PIEZAS_KART.alerones[1];
 
+        const delta = {
+            velocidad: rueda.modStats.velocidad + aleron.modStats.velocidad,
+            aceleracion: rueda.modStats.aceleracion + aleron.modStats.aceleracion,
+            control: rueda.modStats.control + aleron.modStats.control
+        };
+
         return {
-            velocidad: Math.max(15, chasis.velocidad + rueda.modStats.velocidad + aleron.modStats.velocidad),
-            aceleracion: Math.max(15, chasis.aceleracion + rueda.modStats.aceleracion + aleron.modStats.aceleracion),
-            control: Math.max(15, chasis.control + rueda.modStats.control + aleron.modStats.control)
+            velocidad: Math.max(15, chasis.velocidad + delta.velocidad),
+            aceleracion: Math.max(15, chasis.aceleracion + delta.aceleracion),
+            control: Math.max(15, chasis.control + delta.control),
+            base: {
+                velocidad: chasis.velocidad,
+                aceleracion: chasis.aceleracion,
+                control: chasis.control
+            },
+            delta
         };
     }
 
@@ -227,6 +245,12 @@ export class ArenaTurboKarts extends ExperienciaBase {
         this.avataresPodioTemp = [];
         this.particulasCeremonia = [];
         this.clasificacionCarrera = [];
+        this.clasificacionPodioActiva = [];
+        this.enParrillaActiva = false;
+        this.jugadoresEnParrilla.clear();
+        this.vueltaRapidaCarrera = null;
+        this.tiempoMarcaLap1 = 0;
+        this.mejorVueltaLocalEnCarrera = null;
         estadoControles.modoCeremoniaPodio = false;
         estadoControles.camaraPodio = null;
         this.boostPads = [];
@@ -654,8 +678,9 @@ export class ArenaTurboKarts extends ExperienciaBase {
         const texCartel = this._crearTexturaCartelSalida();
         const matCartel = new THREE.SpriteMaterial({ map: texCartel, transparent: true });
         const cartel = new THREE.Sprite(matCartel);
-        cartel.position.set(7.5, 3.55, 0);
-        cartel.scale.set(7.2, 1.8, 1);
+        cartel.position.set(7.5, 6.2, 0);
+        cartel.scale.set(6.8, 1.7, 1);
+        cartel.userData.ignorarColisionCamara = true;
         grupoMeta.add(cartel);
 
         // Zona de Paddock / Calentamiento (12 m detrás de la parrilla: x 14.0 .. 25.0)
@@ -687,8 +712,9 @@ export class ArenaTurboKarts extends ExperienciaBase {
 
         const texPaddock = this._crearTexturaCartelPaddock();
         const cartelPaddock = new THREE.Sprite(new THREE.SpriteMaterial({ map: texPaddock, transparent: true }));
-        cartelPaddock.position.set(19.5, 3.25, 0);
-        cartelPaddock.scale.set(6.8, 1.7, 1);
+        cartelPaddock.position.set(19.5, 6.2, 0);
+        cartelPaddock.scale.set(6.2, 1.55, 1);
+        cartelPaddock.userData.ignorarColisionCamara = true;
         grupoMeta.add(cartelPaddock);
 
         this.grupoRaiz.add(grupoMeta);
@@ -1132,11 +1158,129 @@ export class ArenaTurboKarts extends ExperienciaBase {
     }
 
     /**
-     * Inicia el conteo sincronizado de 10 segundos de la parrilla de salida para una carrera a 2 vueltas.
+     * Registra la vuelta más rápida observada en la carrera actual.
+     * @param {string} apodo
+     * @param {number} tiempo
      */
-    _iniciarConteoSalida(emitirRed = true) {
+    _registrarVueltaRapida(apodo, tiempo) {
+        if (!apodo || typeof tiempo !== 'number' || !Number.isFinite(tiempo) || tiempo <= 0) return;
+        if (!this.vueltaRapidaCarrera || tiempo < this.vueltaRapidaCarrera.tiempo) {
+            this.vueltaRapidaCarrera = {
+                apodo: String(apodo),
+                tiempo: Number(tiempo.toFixed(2))
+            };
+        }
+    }
+
+    /**
+     * Cuenta cuántos corredores remotos se encuentran dentro de la parrilla de salida.
+     * @returns {number}
+     */
+    _contarRemotosEnZonaSalida() {
+        let count = 0;
+        for (const remoto of estadoRed.jugadoresRemotos.values()) {
+            if (!remoto || remoto.experienciaActiva !== 'karts' || !remoto.avatar) continue;
+            const p = remoto.avatar.position;
+            if (p.x >= 1.4 && p.x <= 13.6 && Math.abs(p.z - CENTRO_SALIDA_Z) <= ANCHO_PISTA * 0.52 && p.y < 1.5) {
+                count += 1;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Cancela el conteo regresivo activo en la arena y apaga el semáforo.
+     * @param {boolean} [mostrarAvisoRemoto]
+     */
+    _cancelarConteoSala(mostrarAvisoRemoto = false) {
+        this.estadoCarrera.cuentaRegresiva = 0;
+        this.estadoCarrera.bannerMensaje = '';
+        this.bannerTemporal = '';
+        this.tiempoBannerTemporal = 0;
+        this.enParrillaActiva = false;
+        this.jugadoresEnParrilla.clear();
+        this._actualizarVisualSemaforo(0, 0);
+        if (mostrarAvisoRemoto) {
+            notificarEstado('aviso', { mensaje: '🏁 Conteo de salida cancelado (parrilla vacía)' });
+        }
+    }
+
+    /**
+     * Aborta la salida del corredor local (por botón o saliendo de la parrilla en reversa),
+     * regresándolo al Paddock y cancelando el conteo de sala si la parrilla queda vacía.
+     * @param {'boton'|'reversa'} [motivo]
+     * @returns {boolean}
+     */
+    cancelarSalidaCarrera(motivo = 'boton') {
+        if (this.estadoCarrera.cuentaRegresiva <= 0 && !this.enParrillaActiva) {
+            return false;
+        }
+        this.enParrillaActiva = false;
+        this.estadoCarrera.enZonaSalida = false;
+        this.jugadoresEnParrilla.delete(estadoJugador.id);
+
+        const slot = this._obtenerSlotParrillaActual();
+        const posPaddock = this.obtenerPosicionPaddock(slot);
+        this.estadoCarrera.velocidad = 0;
+        this.estadoCarrera.velocidadKmH = 0;
+        this.estadoCarrera.cooldownSalida = 2.6;
+        estadoJugador.posicion.x = posPaddock.x;
+        estadoJugador.posicion.y = posPaddock.y;
+        estadoJugador.posicion.z = posPaddock.z;
+        estadoJugador.rotacion = -Math.PI / 2;
+
+        if (this.contextoActual?.avatarLocal) {
+            this.contextoActual.avatarLocal.position.set(posPaddock.x, posPaddock.y, posPaddock.z);
+            this.contextoActual.avatarLocal.rotation.y = estadoJugador.rotacion;
+            this.contextoActual.avatarLocal.userData.velocidadKart = 0;
+        }
+        enviarEstadoJugadorInmediato();
+
+        const restantes = Math.max(this.jugadoresEnParrilla.size, this._contarRemotosEnZonaSalida());
+        if (!estadoRed.conectado || restantes === 0) {
+            this._cancelarConteoSala(false);
+        }
+        if (estadoRed.conectado) {
+            enviarCancelacionSalidaKart({ motivo, jugadorId: estadoJugador.id });
+        }
+
+        reproducirSonido('interaccion');
+        notificarEstado('aviso', { mensaje: '↩️ Salida cancelada — de vuelta en el Paddock' });
+        return true;
+    }
+
+    /**
+     * Devuelve el resumen de transmisión estilo F1 TV mientras la ceremonia de podio está activa.
+     * @returns {object|null}
+     */
+    obtenerEstadoPodioF1() {
+        if (!this.ceremoniaPodioActiva) return null;
+        const lista = this.clasificacionPodioActiva?.length
+            ? this.clasificacionPodioActiva
+            : this.clasificacionCarrera;
+        return {
+            activo: true,
+            top3: lista.slice(0, 3),
+            vueltaRapida: this.vueltaRapidaCarrera,
+            segundosRestantes: Math.max(1, Math.ceil(this.tiempoCeremoniaPodio))
+        };
+    }
+
+    /**
+     * Inicia el conteo sincronizado de 10 segundos de la parrilla de salida para una carrera a 2 vueltas.
+     * @param {boolean} [emitirRed]
+     * @param {string|null} [idIniciador]
+     */
+    _iniciarConteoSalida(emitirRed = true, idIniciador = null) {
         if (this.estadoCarrera.cuentaRegresiva > 0 || this.ceremoniaPodioActiva) return;
         this.clasificacionCarrera = [];
+        this.clasificacionPodioActiva = [];
+        this.vueltaRapidaCarrera = null;
+        this.tiempoMarcaLap1 = 0;
+        this.mejorVueltaLocalEnCarrera = null;
+        this.jugadoresEnParrilla.clear();
+        if (idIniciador) this.jugadoresEnParrilla.add(idIniciador);
+
         this.estadoCarrera.slotParrilla = this._obtenerSlotParrillaActual();
         this.estadoCarrera.cuentaRegresiva = DURACION_CONTEO_SALIDA;
         this.estadoCarrera.carreraActiva = false;
@@ -1150,8 +1294,10 @@ export class ArenaTurboKarts extends ExperienciaBase {
         this.tiempoBannerTemporal = 0;
         this._reiniciarVisualCheckpoints();
 
-        // Alinear inmediatamente en el cajón asignado si se inicia por red cerca de la salida
-        if (this.estadoCarrera.enZonaSalida) {
+        // Alinear inmediatamente en el cajón asignado si está en la parrilla
+        this.enParrillaActiva = Boolean(this.estadoCarrera.enZonaSalida);
+        if (this.enParrillaActiva) {
+            this.jugadoresEnParrilla.add(estadoJugador.id);
             const slotPos = this.obtenerPosicionSlotParrilla(this.estadoCarrera.slotParrilla);
             estadoJugador.posicion.x = slotPos.x;
             estadoJugador.posicion.y = slotPos.y;
@@ -1163,6 +1309,7 @@ export class ArenaTurboKarts extends ExperienciaBase {
         if (emitirRed) {
             enviarEventoExperiencia('iniciar_conteo_carrera', {
                 accion: 'iniciar_conteo_carrera',
+                jugadorId: estadoJugador.id,
                 duracion: DURACION_CONTEO_SALIDA,
                 vueltas: VUELTAS_CARRERA_KARTS
             });
@@ -1299,8 +1446,9 @@ export class ArenaTurboKarts extends ExperienciaBase {
      * Inicia la Ceremonia de Podio de 12 segundos con pilotos LEGO celebrando, karts estacionados adelante y cámara heroica.
      * @param {Array<object>} clasificacion
      * @param {boolean} [emitirRed]
+     * @param {object|null} [vueltaRapidaExterna]
      */
-    iniciarCeremoniaPodio(clasificacion = [], emitirRed = true) {
+    iniciarCeremoniaPodio(clasificacion = [], emitirRed = true, vueltaRapidaExterna = null) {
         if (this.ceremoniaPodioActiva) return;
         const top3 = Array.isArray(clasificacion) ? clasificacion.slice(0, 3) : [];
         if (top3.length === 0) return;
@@ -1315,12 +1463,28 @@ export class ArenaTurboKarts extends ExperienciaBase {
         this.ceremoniaPodioActiva = true;
         this.tiempoCeremoniaPodio = DURACION_CEREMONIA_PODIO;
         this.clasificacionPodioActiva = top3;
+        this.enParrillaActiva = false;
+        this.jugadoresEnParrilla.clear();
         this.timerFuegos = 0.05;
         this.timerChampan = 0.05;
         this.estadoCarrera.carreraActiva = false;
         this.estadoCarrera.cuentaRegresiva = 0;
         this.estadoCarrera.velocidad = 0;
         this.estadoCarrera.velocidadKmH = 0;
+
+        if (vueltaRapidaExterna?.apodo && typeof vueltaRapidaExterna?.tiempo === 'number') {
+            this._registrarVueltaRapida(vueltaRapidaExterna.apodo, vueltaRapidaExterna.tiempo);
+        }
+        if (!this.vueltaRapidaCarrera) {
+            for (const f of top3) {
+                if (typeof f.mejorVueltaIndividual === 'number') {
+                    this._registrarVueltaRapida(f.apodo, f.mejorVueltaIndividual);
+                }
+            }
+        }
+        if (!this.vueltaRapidaCarrera && top3[0]?.apodo && typeof top3[0]?.tiempo === 'number') {
+            this._registrarVueltaRapida(top3[0].apodo, Number((top3[0].tiempo / VUELTAS_CARRERA_KARTS).toFixed(2)));
+        }
 
         estadoControles.garajeKartAbierto = false;
         estadoControles.modoCeremoniaPodio = true;
@@ -1403,14 +1567,14 @@ export class ArenaTurboKarts extends ExperienciaBase {
             lookZ: POSICION_PODIO.z + 2.2
         };
 
-        const primero = top3[0];
-        this.estadoCarrera.bannerMensaje = `🏆 ¡CEREMONIA DE PODIO! 1.º ${primero.apodo} (${DURACION_CEREMONIA_PODIO}s)`;
+        this.estadoCarrera.bannerMensaje = '';
         reproducirSonido('nivel');
 
         if (emitirRed) {
             enviarEventoExperiencia('iniciar_ceremonia_podio', {
                 accion: 'iniciar_ceremonia_podio',
-                clasificacion: top3
+                clasificacion: top3,
+                vueltaRapida: this.vueltaRapidaCarrera
             });
         }
     }
@@ -1466,15 +1630,7 @@ export class ArenaTurboKarts extends ExperienciaBase {
             lookZ: POSICION_PODIO.z + 2.2
         };
 
-        const segRestantes = Math.max(1, Math.ceil(this.tiempoCeremoniaPodio));
-        const listaPodio = this.clasificacionPodioActiva?.length
-            ? this.clasificacionPodioActiva
-            : this.clasificacionCarrera;
-        const resumenTop = listaPodio
-            .slice(0, 3)
-            .map((f, idx) => `${idx + 1}.º ${f.apodo}`)
-            .join(' · ');
-        this.estadoCarrera.bannerMensaje = `🏆 ¡CEREMONIA DE PODIO! ${resumenTop} (${segRestantes}s)`;
+        this.estadoCarrera.bannerMensaje = '';
 
         if (this.tiempoCeremoniaPodio === 0) {
             this._finalizarCeremoniaPodio();
@@ -1499,6 +1655,11 @@ export class ArenaTurboKarts extends ExperienciaBase {
         this.ceremoniaPodioActiva = false;
         this.tiempoCeremoniaPodio = 0;
         this.clasificacionPodioActiva = [];
+        this.enParrillaActiva = false;
+        this.jugadoresEnParrilla.clear();
+        this.vueltaRapidaCarrera = null;
+        this.tiempoMarcaLap1 = 0;
+        this.mejorVueltaLocalEnCarrera = null;
         estadoControles.modoCeremoniaPodio = false;
         estadoControles.camaraPodio = null;
 
@@ -1671,17 +1832,32 @@ export class ArenaTurboKarts extends ExperienciaBase {
     alEventoRed(evento) {
         const datos = evento?.datos || {};
         const accion = evento?.accion || datos.accion || evento?.subtipo;
+        const jugadorEventoId = datos.jugadorId || evento?.origenId;
 
         if (accion === 'iniciar_conteo_carrera') {
-            this._iniciarConteoSalida(false);
+            if (jugadorEventoId) this.jugadoresEnParrilla.add(jugadorEventoId);
+            this._iniciarConteoSalida(false, jugadorEventoId);
+        } else if (accion === 'unirse_parrilla_kart') {
+            if (jugadorEventoId) this.jugadoresEnParrilla.add(jugadorEventoId);
+        } else if (accion === 'cancelar_salida_kart') {
+            if (jugadorEventoId) this.jugadoresEnParrilla.delete(jugadorEventoId);
+            if (
+                datos.cancelarConteo === true ||
+                (typeof datos.restantesEnParrilla === 'number' && datos.restantesEnParrilla <= 0)
+            ) {
+                this._cancelarConteoSala(jugadorEventoId !== estadoJugador.id);
+            }
         } else if (accion === 'iniciar_ceremonia_podio' && Array.isArray(datos.clasificacion)) {
-            this.iniciarCeremoniaPodio(datos.clasificacion, false);
+            this.iniciarCeremoniaPodio(datos.clasificacion, false, datos.vueltaRapida || null);
         } else if (
             (accion === 'carrera_finalizada' || accion === 'vuelta_completada') &&
             datos.apodo &&
             typeof datos.tiempo === 'number'
         ) {
             this._registrarTiempoRanking(datos.apodo, datos.tiempo);
+            if (typeof datos.mejorVueltaIndividual === 'number') {
+                this._registrarVueltaRapida(datos.apodo, datos.mejorVueltaIndividual);
+            }
             const remoto = evento?.origenId ? estadoRed.jugadoresRemotos.get(evento.origenId) : null;
             this._registrarFinalistaCarrera({
                 id: datos.id || evento?.origenId || datos.apodo,
@@ -1743,7 +1919,7 @@ export class ArenaTurboKarts extends ExperienciaBase {
             matBorde.emissiveIntensity = 0.55 + pulso * 0.7;
         }
 
-        // 1. Verificar Zona de Salida (x: 1.5..13.5, z cerca de 54)
+        // 1. Verificar Zona de Salida (x: 1.5..13.5, z cerca de 54) + Salida en Reversa Abortable
         const dentroZonaSalida =
             pos.x >= 1.4 &&
             pos.x <= 13.6 &&
@@ -1751,8 +1927,27 @@ export class ArenaTurboKarts extends ExperienciaBase {
             pos.y < 1.5;
         ec.enZonaSalida = dentroZonaSalida;
         if (dentroZonaSalida && ec.cuentaRegresiva <= 0 && ec.cooldownSalida <= 0 && !ec.carreraActiva) {
-            this._iniciarConteoSalida(true);
+            this._iniciarConteoSalida(true, estadoJugador.id);
+        } else if (dentroZonaSalida && ec.cuentaRegresiva > 0 && !this.enParrillaActiva && ec.cooldownSalida <= 0) {
+            this.enParrillaActiva = true;
+            this.jugadoresEnParrilla.add(estadoJugador.id);
+            if (estadoRed.conectado) {
+                enviarEventoExperiencia('unirse_parrilla_kart', {
+                    accion: 'unirse_parrilla_kart',
+                    jugadorId: estadoJugador.id
+                });
+            }
+        } else if (!dentroZonaSalida && this.enParrillaActiva && ec.cuentaRegresiva > 0) {
+            this.cancelarSalidaCarrera('reversa');
         }
+
+        const teclas = estadoControles.teclas;
+        const quiereReversa =
+            !estadoControles.modoPreviewAvatar &&
+            (teclas.has('KeyS') ||
+                teclas.has('ArrowDown') ||
+                estadoControles.frenarKart ||
+                (estadoControles.joystick.activo && estadoControles.joystick.y < -0.25));
 
         // 2. Conteo regresivo de 10 segundos en parrilla con beeps en los últimos 5 segundos
         if (ec.cuentaRegresiva > 0) {
@@ -1766,28 +1961,44 @@ export class ArenaTurboKarts extends ExperienciaBase {
             if (dentroZonaSalida) {
                 ec.slotParrilla = this._obtenerSlotParrillaActual();
                 const posSlot = this.obtenerPosicionSlotParrilla(ec.slotParrilla);
-                pos.x += (posSlot.x - pos.x) * Math.min(1, dtSeg * 6);
-                pos.z += (posSlot.z - pos.z) * Math.min(1, dtSeg * 6);
-                pos.y = posSlot.y;
-                estadoJugador.rotacion = -Math.PI / 2;
-                ec.velocidad = 0;
+                if (!quiereReversa && ec.velocidad >= -0.25) {
+                    pos.x += (posSlot.x - pos.x) * Math.min(1, dtSeg * 6);
+                    pos.z += (posSlot.z - pos.z) * Math.min(1, dtSeg * 6);
+                    pos.y = posSlot.y;
+                    estadoJugador.rotacion = -Math.PI / 2;
+                    ec.velocidad = 0;
+                } else {
+                    estadoJugador.rotacion = -Math.PI / 2;
+                    if (pos.x < posSlot.x - 0.15) {
+                        pos.x = posSlot.x - 0.15;
+                        ec.velocidad = Math.min(0, ec.velocidad);
+                    }
+                }
             }
 
             ec.bannerMensaje = `🏁 SALIDA EN ${Math.max(1, nuevoSeg)}s · ${VUELTAS_CARRERA_KARTS} VUELTAS`;
             this._actualizarVisualSemaforo(ec.cuentaRegresiva, 0);
 
             if (ec.cuentaRegresiva === 0) {
-                ec.carreraActiva = true;
-                ec.vueltaActual = 1;
-                ec.tiempoVuelta = 0;
-                ec.cooldownSalida = 6.0;
-                ec.tiempoTurbo = 1.15;
-                ec.velocidad = 14;
-                this.tiempoLuzVerde = 2.2;
-                this.bannerTemporal = `¡YA! VUELTA 1/${VUELTAS_CARRERA_KARTS}`;
-                this.tiempoBannerTemporal = 2.0;
-                reproducirSonido('salida_go');
-                this._actualizarVisualSemaforo(0, this.tiempoLuzVerde);
+                const participaba = this.enParrillaActiva || dentroZonaSalida;
+                this.enParrillaActiva = false;
+                this.jugadoresEnParrilla.clear();
+                if (participaba) {
+                    ec.carreraActiva = true;
+                    ec.vueltaActual = 1;
+                    ec.tiempoVuelta = 0;
+                    ec.cooldownSalida = 6.0;
+                    ec.tiempoTurbo = 1.15;
+                    ec.velocidad = 14;
+                    this.tiempoLuzVerde = 2.2;
+                    this.bannerTemporal = `¡YA! VUELTA 1/${VUELTAS_CARRERA_KARTS}`;
+                    this.tiempoBannerTemporal = 2.0;
+                    reproducirSonido('salida_go');
+                    this._actualizarVisualSemaforo(0, this.tiempoLuzVerde);
+                } else {
+                    ec.bannerMensaje = '';
+                    this._actualizarVisualSemaforo(0, 0);
+                }
             }
         } else {
             this._actualizarVisualSemaforo(0, this.tiempoLuzVerde);
@@ -1795,15 +2006,17 @@ export class ArenaTurboKarts extends ExperienciaBase {
         }
 
         // 3. Lectura de controles de conducción (teclado + móvil)
-        const teclas = estadoControles.teclas;
         const bloquearPorConteo = ec.cuentaRegresiva > 0 && dentroZonaSalida;
 
         let acelerar = 0;
-        if (!bloquearPorConteo && !estadoControles.modoPreviewAvatar) {
+        if (!estadoControles.modoPreviewAvatar) {
             if (teclas.has('KeyW') || teclas.has('ArrowUp') || estadoControles.acelerarKart) acelerar += 1;
             if (teclas.has('KeyS') || teclas.has('ArrowDown') || estadoControles.frenarKart) acelerar -= 1;
             if (estadoControles.joystick.activo && Math.abs(estadoControles.joystick.y) > 0.2) {
                 acelerar += estadoControles.joystick.y;
+            }
+            if (bloquearPorConteo && acelerar > 0) {
+                acelerar = 0;
             }
         }
         acelerar = Math.max(-1, Math.min(1, acelerar));
@@ -2021,6 +2234,11 @@ export class ArenaTurboKarts extends ExperienciaBase {
             ) {
                 if (ec.vueltaActual < ec.totalVueltas) {
                     // Avanzar a Vuelta 2/2 tras completar los 5 checkpoints de la Vuelta 1
+                    const tiempoVuelta1 = Number(ec.tiempoVuelta.toFixed(2));
+                    this.tiempoMarcaLap1 = ec.tiempoVuelta;
+                    this.mejorVueltaLocalEnCarrera = tiempoVuelta1;
+                    this._registrarVueltaRapida(estadoJugador.apodo, tiempoVuelta1);
+
                     ec.vueltaActual += 1;
                     ec.checkpointActual = 0;
                     this._reiniciarVisualCheckpoints();
@@ -2028,11 +2246,19 @@ export class ArenaTurboKarts extends ExperienciaBase {
                     this.tiempoBannerTemporal = 2.6;
                     reproducirSonido('moneda');
                     notificarEstado('aviso', {
-                        mensaje: `🔥 ¡Vuelta 1 completada! Inicia la Vuelta Final (${ec.vueltaActual}/${ec.totalVueltas})`
+                        mensaje: `🔥 ¡Vuelta 1 completada (${tiempoVuelta1.toFixed(2)}s)! Inicia la Vuelta Final`
                     });
                 } else {
                     // Fin de Carrera tras completar las 2 vueltas
                     const tiempoFinal = Number(ec.tiempoVuelta.toFixed(2));
+                    const tiempoVuelta2 = this.tiempoMarcaLap1 > 0
+                        ? Number(Math.max(0.1, ec.tiempoVuelta - this.tiempoMarcaLap1).toFixed(2))
+                        : Number((tiempoFinal / ec.totalVueltas).toFixed(2));
+                    const mejorVueltaIndividual = this.mejorVueltaLocalEnCarrera
+                        ? Math.min(this.mejorVueltaLocalEnCarrera, tiempoVuelta2)
+                        : tiempoVuelta2;
+                    this._registrarVueltaRapida(estadoJugador.apodo, mejorVueltaIndividual);
+
                     ec.ultimaVuelta = tiempoFinal;
                     ec.carreraActiva = false;
                     ec.vueltaActual = 1;
@@ -2053,6 +2279,7 @@ export class ArenaTurboKarts extends ExperienciaBase {
                         apodo: estadoJugador.apodo,
                         nivel: estadoJugador.nivel,
                         tiempo: tiempoFinal,
+                        mejorVueltaIndividual,
                         configKart: { ...estadoJugador.configKart },
                         apariencia: { ...estadoJugador.apariencia },
                         equipado: { ...estadoJugador.equipado }
@@ -2104,15 +2331,17 @@ export class ArenaTurboKarts extends ExperienciaBase {
 
         if (estadoJugador.enVehiculo && estadoControles.garajeKartAbierto) {
             const ancho = contextoCamara.anchoPantalla || (typeof window !== 'undefined' ? window.innerWidth : 1024);
+            const alto = contextoCamara.altoPantalla || (typeof window !== 'undefined' ? window.innerHeight : 768);
+            const esHorizontal = ancho >= alto || ancho > 640;
             const rot = estadoJugador.rotacion;
             const angShowcase = rot + 0.62;
-            const distShowcase = 4.6;
+            const distShowcase = ancho < 760 ? 5.0 : 4.6;
             const px = estadoJugador.posicion.x;
             const py = estadoJugador.posicion.y;
             const pz = estadoJugador.posicion.z;
             const rightX = Math.cos(angShowcase);
             const rightZ = -Math.sin(angShowcase);
-            const desplazamientoIzq = ancho > 760 ? -0.75 : 0;
+            const desplazamientoIzq = esHorizontal ? (ancho > 760 ? -1.15 : -1.25) : -0.35;
 
             return {
                 modo: 'garaje_kart',
