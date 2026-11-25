@@ -118,42 +118,42 @@ export const CATALOGO_KARTS = Object.freeze([
     {
         id: 'kart_batmovil',
         nombre: 'Interceptor Nocturno',
-        descripcion: 'Interceptor táctico blindado con turbina frontal y doble aleta trasera.',
+        descripcion: 'Roadster stealth de carbono con morro de turbina esculpido y alerones murciélago dobles.',
         velocidad: 45,
         aceleracion: 39,
         control: 36,
         pesoImpacto: 1.25,
-        asientoOffset: { x: 0, y: 0.31, z: -0.08 }
+        asientoOffset: { x: 0, y: 0.32, z: -0.1 }
     },
     {
         id: 'kart_formula',
-        nombre: 'Monoplaza GP Apex',
-        descripcion: 'Fórmula aerodinámico ultraligero con halo protector y alerón multielemento.',
+        nombre: 'Superdeportivo Apex',
+        descripcion: 'Roadster superdeportivo biplaza abierto con morro afilado, tomas laterales y franjas GP.',
         velocidad: 52,
         aceleracion: 34,
         control: 34,
         pesoImpacto: 0.85,
-        asientoOffset: { x: 0, y: 0.27, z: -0.1 }
+        asientoOffset: { x: 0, y: 0.30, z: -0.1 }
     },
     {
         id: 'kart_lemans',
-        nombre: 'Prototipo Le Mans GT',
-        descripcion: 'Hiperauto de resistencia equilibrado con aleta dorsal y pasos de rueda LMP.',
+        nombre: 'Hypercar Le Mans GT',
+        descripcion: 'Hypercar de resistencia con pasos de rueda esculpidos, splitter de carbono y aleta dorsal.',
         velocidad: 44,
         aceleracion: 34,
         control: 42,
         pesoImpacto: 1.0,
-        asientoOffset: { x: 0, y: 0.30, z: -0.08 }
+        asientoOffset: { x: 0, y: 0.31, z: -0.1 }
     },
     {
         id: 'kart_tumbler',
-        nombre: 'Tanque Urbano 4x4',
-        descripcion: 'Asalto pesado blindado con suspensión delantera expuesta y doble eje trasero.',
+        nombre: 'Concepto Futurista Neon',
+        descripcion: 'Roadster eléctrico futurista negro obsidiana con ribetes luminosos cian y rines multirrayo.',
         velocidad: 34,
         aceleracion: 48,
         control: 38,
         pesoImpacto: 1.45,
-        asientoOffset: { x: 0, y: 0.43, z: -0.06 }
+        asientoOffset: { x: 0, y: 0.33, z: -0.1 }
     }
 ]);
 

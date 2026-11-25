@@ -1205,116 +1205,101 @@ export function obtenerTexturaNeumatico(estilo = 'clasica') {
 export function obtenerTexturaChasisKart(arquetipo = 'kart_batmovil', colorHex = '#ff2e4c') {
     const colorCss = formatearColorCss(colorHex);
     const tipo = arquetipo || 'kart_batmovil';
-    const claveBase = `chasis_${tipo}_${colorCss.replace('#', '')}`;
+    const claveBase = `chasis_v2_${tipo}_${colorCss.replace('#', '')}`;
 
     const map = obtenerOCrearTextura(`${claveBase}_albedo`, 256, 256, (ctx) => {
         ctx.fillStyle = colorCss;
         ctx.fillRect(0, 0, 256, 256);
 
-        // Franjas laterales de fibra de carbono tejida
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 186, 256, 70);
-        for (let y = 188; y < 254; y += 8) {
+        // Micro-tejido de fibra de carbono en faldones inferiores
+        ctx.fillStyle = '#0b1120';
+        ctx.fillRect(0, 196, 256, 60);
+        for (let y = 198; y < 254; y += 8) {
             for (let x = ((y / 8) % 2) * 8; x < 256; x += 16) {
                 ctx.fillStyle = '#1e293b';
-                ctx.fillRect(x, y, 7, 7);
+                ctx.fillRect(x, y, 6, 6);
             }
         }
 
-        // Livery y emblema según arquetipo
+        // Livery automotriz específico por superdeportivo / concepto
         if (tipo === 'kart_batmovil') {
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
-            ctx.fillRect(0, 0, 256, 256);
-            ctx.strokeStyle = '#facc15';
+            ctx.fillStyle = 'rgba(10, 14, 24, 0.72)';
+            ctx.fillRect(0, 0, 256, 196);
+            ctx.strokeStyle = '#f59e0b';
             ctx.lineWidth = 4;
             ctx.beginPath();
-            ctx.moveTo(48, 70);
-            ctx.lineTo(128, 36);
-            ctx.lineTo(208, 70);
+            ctx.moveTo(42, 74);
+            ctx.lineTo(128, 34);
+            ctx.lineTo(214, 74);
             ctx.lineTo(128, 108);
             ctx.closePath();
             ctx.stroke();
         } else if (tipo === 'kart_formula') {
             ctx.fillStyle = '#f8fafc';
-            ctx.fillRect(104, 0, 14, 186);
-            ctx.fillRect(138, 0, 14, 186);
+            ctx.fillRect(102, 0, 16, 196);
+            ctx.fillRect(138, 0, 16, 196);
             ctx.fillStyle = '#0f172a';
-            ctx.beginPath();
-            ctx.arc(128, 92, 26, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#facc15';
-            ctx.font = 'bold 26px system-ui, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('01', 128, 93);
+            ctx.fillRect(122, 0, 12, 196);
         } else if (tipo === 'kart_lemans') {
             ctx.fillStyle = '#f8fafc';
-            ctx.fillRect(92, 0, 24, 186);
-            ctx.fillRect(140, 0, 24, 186);
+            ctx.fillRect(88, 0, 26, 196);
+            ctx.fillRect(142, 0, 26, 196);
             ctx.fillStyle = '#0f172a';
-            ctx.fillRect(120, 0, 16, 186);
+            ctx.fillRect(118, 0, 20, 196);
         } else if (tipo === 'kart_tumbler') {
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.35)';
-            ctx.fillRect(0, 0, 256, 186);
-            // Franja táctica de advertencia diagonal
-            ctx.fillStyle = '#facc15';
-            for (let x = -20; x < 260; x += 28) {
-                ctx.beginPath();
-                ctx.moveTo(x, 166);
-                ctx.lineTo(x + 14, 166);
-                ctx.lineTo(x + 26, 186);
-                ctx.lineTo(x + 12, 186);
-                ctx.closePath();
-                ctx.fill();
-            }
+            ctx.fillStyle = '#090d16';
+            ctx.fillRect(0, 0, 256, 196);
+            // Filetes luminosos cian + línea de acento del color del jugador
+            ctx.fillStyle = '#22d3ee';
+            ctx.fillRect(0, 174, 256, 7);
+            ctx.fillRect(122, 0, 12, 174);
+            ctx.fillStyle = colorCss;
+            ctx.fillRect(106, 0, 8, 174);
+            ctx.fillRect(142, 0, 8, 174);
         }
 
-        // Juntas de panel metálicas y tomas de refrigeración
-        ctx.strokeStyle = 'rgba(2, 6, 23, 0.65)';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(10, 10, 236, 168);
-        ctx.beginPath();
-        ctx.moveTo(10, 96);
-        ctx.lineTo(246, 96);
-        ctx.stroke();
+        // Juntas finas de carrocería y branquias aerodinámicas
+        ctx.strokeStyle = 'rgba(2, 6, 23, 0.55)';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(10, 10, 236, 176);
 
         ctx.fillStyle = '#090d16';
-        for (let r = 0; r < 5; r++) {
-            ctx.fillRect(24, 122 + r * 9, 44, 5);
-            ctx.fillRect(188, 122 + r * 9, 44, 5);
+        for (let r = 0; r < 4; r++) {
+            ctx.fillRect(22, 130 + r * 9, 38, 4);
+            ctx.fillRect(196, 130 + r * 9, 38, 4);
         }
-    }, { anisotropia: 4 });
+    }, { repetir: 1, anisotropia: 4 });
 
-    const bumpMap = obtenerOCrearTextura(`chasis_bump_${tipo}`, 256, 256, (ctx) => {
+    const bumpMap = obtenerOCrearTextura(`chasis_v2_bump_${tipo}`, 256, 256, (ctx) => {
         ctx.fillStyle = '#888888';
         ctx.fillRect(0, 0, 256, 256);
-        for (let y = 188; y < 254; y += 8) {
+        for (let y = 198; y < 254; y += 8) {
             for (let x = ((y / 8) % 2) * 8; x < 256; x += 16) {
-                ctx.fillStyle = '#b0b0b0';
-                ctx.fillRect(x, y, 7, 7);
+                ctx.fillStyle = '#b4b4b4';
+                ctx.fillRect(x, y, 6, 6);
             }
         }
-        ctx.strokeStyle = '#303030';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(10, 10, 236, 168);
-        ctx.fillStyle = '#252525';
-        for (let r = 0; r < 5; r++) {
-            ctx.fillRect(24, 122 + r * 9, 44, 5);
-            ctx.fillRect(188, 122 + r * 9, 44, 5);
+        ctx.strokeStyle = '#323232';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(10, 10, 236, 176);
+        ctx.fillStyle = '#262626';
+        for (let r = 0; r < 4; r++) {
+            ctx.fillRect(22, 130 + r * 9, 38, 4);
+            ctx.fillRect(196, 130 + r * 9, 38, 4);
         }
-    });
+    }, { repetir: 1 });
 
-    const roughnessMap = obtenerOCrearTextura(`chasis_rough_${tipo}`, 256, 256, (ctx) => {
-        ctx.fillStyle = '#484848';
-        ctx.fillRect(0, 0, 256, 186);
-        ctx.fillStyle = '#a4a4a4';
-        ctx.fillRect(0, 186, 256, 70);
+    const roughnessMap = obtenerOCrearTextura(`chasis_v2_rough_${tipo}`, 256, 256, (ctx) => {
+        ctx.fillStyle = tipo === 'kart_batmovil' ? '#585858' : '#323232';
+        ctx.fillRect(0, 0, 256, 196);
+        ctx.fillStyle = '#9a9a9a';
+        ctx.fillRect(0, 196, 256, 60);
         ctx.fillStyle = '#dcdcdc';
-        for (let r = 0; r < 5; r++) {
-            ctx.fillRect(24, 122 + r * 9, 44, 5);
-            ctx.fillRect(188, 122 + r * 9, 44, 5);
+        for (let r = 0; r < 4; r++) {
+            ctx.fillRect(22, 130 + r * 9, 38, 4);
+            ctx.fillRect(196, 130 + r * 9, 38, 4);
         }
-    });
+    }, { repetir: 1 });
 
     return { map, bumpMap, roughnessMap };
 }

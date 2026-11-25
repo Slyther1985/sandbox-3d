@@ -293,21 +293,16 @@
         </div>
     </section>
 
-    <!-- Overlay 100% Pantalla Completa para Tetris Arcade (Primera Persona) -->
+    <!-- Overlay 100% Pantalla Completa Estilo Switch para Tetris Arcade 3D -->
     <section id="pantalla-tetris-fullscreen" class="pantalla-tetris-fullscreen oculto" aria-label="Tetris Arcade en Pantalla Completa">
-        <div class="tetris-barra-superior">
-            <div class="tetris-titulo">
-                <strong>🕹️ TETRIS ARCADE 10×20</strong>
-                <span id="tetris-butaca-actual" class="tetris-badge-butaca">Butaca 1</span>
-            </div>
-            <button id="btn-tetris-levantarse" type="button" class="btn-peligro">Levantarse (Esc)</button>
-        </div>
-
-        <div class="tetris-layout">
-            <aside class="tetris-panel-lateral">
-                <div class="tetris-tarjeta">
-                    <span class="tetris-etiqueta">HOLD (C / Shift)</span>
-                    <canvas id="canvas-tetris-hold" width="104" height="84"></canvas>
+        <aside class="tetris-ala tetris-ala-izq">
+            <div class="tetris-ala-arriba">
+                <div class="tetris-tarjeta tetris-tarjeta-hold">
+                    <div class="tetris-card-hdr">
+                        <span class="tetris-etiqueta">HOLD (C)</span>
+                        <span id="tetris-butaca-actual" class="tetris-badge-butaca">Butaca 1</span>
+                    </div>
+                    <canvas id="canvas-tetris-hold" width="88" height="46"></canvas>
                 </div>
                 <div class="tetris-tarjeta tetris-metricas">
                     <div><span>PUNTAJE</span><strong id="tetris-puntaje">0</strong></div>
@@ -315,44 +310,51 @@
                     <div><span>LÍNEAS</span><strong id="tetris-lineas">0</strong></div>
                     <div><span>RÉCORD</span><strong id="tetris-mejor-puntaje">0</strong></div>
                 </div>
-                <div class="tetris-tarjeta tetris-tabla-no-lineal">
-                    <span class="tetris-etiqueta">BONO NO LINEAL</span>
-                    <small>1L: 100×Nv · 2L: 300×Nv</small>
-                    <small>3L: 500×Nv · 4L TETRIS: 1200×Nv</small>
-                </div>
-            </aside>
-
-            <div class="tetris-centro-tablero">
-                <div id="overlay-tetris-gameover" class="tetris-gameover-overlay oculto">
-                    <h3>GAME OVER</h3>
-                    <p>Tu récord y recompensas se han guardado.</p>
-                    <div class="tetris-gameover-botones">
-                        <button id="btn-tetris-reiniciar" type="button" class="btn-primario">Jugar de Nuevo</button>
-                        <button type="button" class="btn-secundario" data-accion-tetris="levantarse">Levantarse</button>
-                    </div>
-                </div>
             </div>
 
-            <aside class="tetris-panel-lateral">
-                <div class="tetris-tarjeta">
-                    <span class="tetris-etiqueta">SIGUIENTES</span>
-                    <canvas id="canvas-tetris-siguientes" width="104" height="216"></canvas>
+            <div class="tetris-zona-dpad" aria-label="Cruceta direccional Tetris">
+                <div class="tetris-dpad-grid">
+                    <button id="btn-tetris-izq" type="button" class="btn-tetris-tactil btn-tetris-dpad" aria-label="Mover izquierda">◀</button>
+                    <button id="btn-tetris-der" type="button" class="btn-tetris-tactil btn-tetris-dpad" aria-label="Mover derecha">▶</button>
+                    <button id="btn-tetris-bajar" type="button" class="btn-tetris-tactil btn-tetris-dpad btn-tetris-bajar" aria-label="Bajar suave">▼ Suave</button>
                 </div>
-                <div class="tetris-tarjeta">
+            </div>
+        </aside>
+
+        <div class="tetris-centro-tablero">
+            <div id="overlay-tetris-gameover" class="tetris-gameover-overlay oculto">
+                <h3>GAME OVER</h3>
+                <p>Tu récord y recompensas se han guardado.</p>
+                <div class="tetris-gameover-botones">
+                    <button id="btn-tetris-reiniciar" type="button" class="btn-primario">Jugar de Nuevo</button>
+                    <button type="button" class="btn-secundario" data-accion-tetris="levantarse">Levantarse</button>
+                </div>
+            </div>
+        </div>
+
+        <aside class="tetris-ala tetris-ala-der">
+            <div class="tetris-ala-arriba">
+                <button id="btn-tetris-levantarse" type="button" class="btn-peligro btn-tetris-salir">✕ Salir (Esc)</button>
+                <div class="tetris-tarjeta tetris-tarjeta-siguientes">
+                    <span class="tetris-etiqueta">SIGUIENTES</span>
+                    <canvas id="canvas-tetris-siguientes" width="144" height="44"></canvas>
+                </div>
+                <div class="tetris-tarjeta tetris-tarjeta-ranking">
                     <span class="tetris-etiqueta">TOP 5 SALA</span>
                     <div id="lista-ranking-tetris" class="lista-ranking-tetris"></div>
                 </div>
-            </aside>
-        </div>
+            </div>
 
-        <div class="tetris-controles-tactiles">
-            <button id="btn-tetris-izq" type="button" class="btn-tetris-tactil">◀</button>
-            <button id="btn-tetris-bajar" type="button" class="btn-tetris-tactil">▼ Suave</button>
-            <button id="btn-tetris-rotar" type="button" class="btn-tetris-tactil btn-tetris-acento">↻ Rotar</button>
-            <button id="btn-tetris-caida" type="button" class="btn-tetris-tactil btn-tetris-acento">⤓ Caída</button>
-            <button id="btn-tetris-hold" type="button" class="btn-tetris-tactil">Hold</button>
-            <button id="btn-tetris-der" type="button" class="btn-tetris-tactil">▶</button>
-        </div>
+            <div class="tetris-zona-acciones" aria-label="Botones de acción Tetris">
+                <div class="tetris-acciones-grid">
+                    <div class="tetris-acciones-sec">
+                        <button id="btn-tetris-caida" type="button" class="btn-tetris-tactil btn-tetris-acento">⤓ Caída</button>
+                        <button id="btn-tetris-hold" type="button" class="btn-tetris-tactil">Hold</button>
+                    </div>
+                    <button id="btn-tetris-rotar" type="button" class="btn-tetris-tactil btn-tetris-rotar" aria-label="Rotar pieza">↻ Rotar</button>
+                </div>
+            </div>
+        </aside>
     </section>
 
     <!-- Controles Táctiles Estilo Genshin/Fortnite (Joystick Flotante Izquierdo + Arco Pulgar Derecho) -->

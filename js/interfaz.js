@@ -54,6 +54,18 @@ let timerNotificacion = null;
 let tabMenuUnificadoActiva = 'sala';
 let pointerJoystickActivo = null;
 let filtroMochilaActivo = 'todos';
+let limpiarDasTetrisActivo = null;
+
+/**
+ * Cancela cualquier repetición automática (DAS/ARR) activa del D-Pad de Tetris.
+ */
+function detenerRepeticionTetris() {
+    if (typeof limpiarDasTetrisActivo === 'function') {
+        const fn = limpiarDasTetrisActivo;
+        limpiarDasTetrisActivo = null;
+        fn();
+    }
+}
 
 /**
  * Obtiene un elemento del DOM por ID.
@@ -769,8 +781,14 @@ export function actualizarHUD() {
         contadorJugadores.textContent = `${totalJugadores} ${totalJugadores === 1 ? 'jugador' : 'jugadores'}`;
     }
 
+    const ocultarAviso = Boolean(
+        estadoControles.modoTetrisActivo ||
+        estadoControles.modoCeremoniaPodio ||
+        estadoControles.modoPreviewAvatar ||
+        estadoControles.pantallaBienvenidaActiva
+    );
     if (avisoInteraccion) {
-        if (textoEntidad) {
+        if (textoEntidad && !ocultarAviso) {
             avisoInteraccion.textContent = textoEntidad;
             avisoInteraccion.classList.remove('oculto');
         } else {
@@ -859,11 +877,19 @@ function renderizarOverlayTetris() {
         pantallaTetris.classList.toggle('oculto', !activo);
     }
     el('hud-superior')?.classList.toggle('oculto', activo);
+    if (activo) {
+        el('aviso-interaccion')?.classList.add('oculto');
+    } else {
+        detenerRepeticionTetris();
+    }
     sincronizarVisibilidadControlesMoviles();
     if (!activo) return;
 
     const info = estadoSandbox.experienciaActual?.obtenerEstadoHUDTetris?.();
     if (!info) return;
+    if (info.gameOver) {
+        detenerRepeticionTetris();
+    }
 
     const elPts = el('tetris-puntaje');
     const elNiv = el('tetris-nivel');
@@ -1821,18 +1847,89 @@ export function inicializarInterfaz(contextoSandbox) {
     document.querySelector('[data-accion-tetris="levantarse"]')?.addEventListener('click', () => {
         estadoSandbox.experienciaActual?.levantarseAsientoTetris?.();
     });
-    const accionesBotonesTetris = [
-        ['btn-tetris-izq', 'izquierda'],
-        ['btn-tetris-der', 'derecha'],
+    const botonesDpadTetris = [
+        { id: 'btn-tetris-izq', accion: 'izquierda', dasMs: 150, arrMs: 55 },
+        { id: 'btn-tetris-der', accion: 'derecha', dasMs: 150, arrMs: 55 },
+        { id: 'btn-tetris-bajar', accion: 'bajar', dasMs: 90, arrMs: 48 }
+    ];
+    for (const cfg of botonesDpadTetris) {
+        const btn = el(cfg.id);
+        if (!btn) continue;
+
+        let pointerActivo = null;
+        let timerDas = null;
+        let intervaloArr = null;
+
+        const detener = () => {
+            if (timerDas) {
+                clearTimeout(timerDas);
+                timerDas = null;
+            }
+            if (intervaloArr) {
+                clearInterval(intervaloArr);
+                intervaloArr = null;
+            }
+            pointerActivo = null;
+            btn.classList.remove('presionado');
+        };
+
+        btn.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            detenerRepeticionTetris();
+            pointerActivo = e.pointerId;
+            limpiarDasTetrisActivo = detener;
+            btn.classList.add('presionado');
+            try {
+                btn.setPointerCapture(e.pointerId);
+            } catch (_err) {
+                // Ignorar si el navegador no soporta captura
+            }
+            estadoSandbox.experienciaActual?.manejarAccionTetris?.(cfg.accion);
+            timerDas = setTimeout(() => {
+                timerDas = null;
+                intervaloArr = setInterval(() => {
+                    if (!estadoControles.modoTetrisActivo) {
+                        detener();
+                        return;
+                    }
+                    estadoSandbox.experienciaActual?.manejarAccionTetris?.(cfg.accion);
+                }, cfg.arrMs);
+            }, cfg.dasMs);
+        });
+
+        const soltarDpad = (e) => {
+            if (pointerActivo !== null && e?.pointerId !== undefined && e.pointerId !== pointerActivo) return;
+            detener();
+            if (limpiarDasTetrisActivo === detener) {
+                limpiarDasTetrisActivo = null;
+            }
+        };
+        btn.addEventListener('pointerup', soltarDpad);
+        btn.addEventListener('pointercancel', soltarDpad);
+        btn.addEventListener('lostpointercapture', soltarDpad);
+    }
+
+    window.addEventListener('blur', detenerRepeticionTetris);
+
+    const accionesSimplesTetris = [
         ['btn-tetris-rotar', 'rotar'],
-        ['btn-tetris-bajar', 'bajar'],
         ['btn-tetris-caida', 'caida_rapida'],
         ['btn-tetris-hold', 'hold']
     ];
-    for (const [idBtn, accion] of accionesBotonesTetris) {
-        el(idBtn)?.addEventListener('click', () => {
+    for (const [idBtn, accion] of accionesSimplesTetris) {
+        const btn = el(idBtn);
+        if (!btn) continue;
+        btn.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            btn.classList.add('presionado');
             estadoSandbox.experienciaActual?.manejarAccionTetris?.(accion);
         });
+        const soltarAccion = () => btn.classList.remove('presionado');
+        btn.addEventListener('pointerup', soltarAccion);
+        btn.addEventListener('pointercancel', soltarAccion);
+        btn.addEventListener('pointerleave', soltarAccion);
     }
 
     el('btn-audio')?.addEventListener('click', (e) => {

@@ -630,7 +630,7 @@ export class SalaTetris extends ExperienciaBase {
                     posicionObjetivo: { ...encuadre.posicion },
                     puntoMira: { ...encuadre.objetivo },
                     suavizado: 12,
-                    fov: CONFIG_CAMARA.fov
+                    fov: 64
                 };
             }
         }
@@ -936,6 +936,7 @@ export class SalaTetris extends ExperienciaBase {
 
         estadoControles.modoTetrisActivo = true;
         estadoControles.asientoTetrisActual = idx;
+        estadoControles.entidadCercana = null;
         estadoControles.animacionActual = 'sentarse';
         estadoJugador.posicion.x = asiento.posicion.x;
         estadoJugador.posicion.y = 0;
@@ -1413,14 +1414,30 @@ export class SalaTetris extends ExperienciaBase {
     _dibujarMiniPieza2D(ctx, tipo, cx, cy, tam) {
         const def = PIEZAS_TETRIS[tipo];
         if (!def) return;
-        const cols = def.matriz[0].length;
         const rows = def.matriz.length;
-        const ox = cx - (cols * tam) / 2;
-        const oy = cy - (rows * tam) / 2;
+        const cols = def.matriz[0].length;
+        let minC = cols;
+        let maxC = -1;
+        let minR = rows;
+        let maxR = -1;
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
                 if (def.matriz[r][c]) {
-                    this._dibujarBloque2D(ctx, ox + c * tam, oy + r * tam, tam, def.color);
+                    if (c < minC) minC = c;
+                    if (c > maxC) maxC = c;
+                    if (r < minR) minR = r;
+                    if (r > maxR) maxR = r;
+                }
+            }
+        }
+        const spanC = maxC >= minC ? maxC - minC + 1 : cols;
+        const spanR = maxR >= minR ? maxR - minR + 1 : rows;
+        const ox = cx - (spanC * tam) / 2;
+        const oy = cy - (spanR * tam) / 2;
+        for (let r = minR; r <= maxR; r++) {
+            for (let c = minC; c <= maxC; c++) {
+                if (def.matriz[r]?.[c]) {
+                    this._dibujarBloque2D(ctx, ox + (c - minC) * tam, oy + (r - minR) * tam, tam, def.color);
                 }
             }
         }
@@ -1436,7 +1453,8 @@ export class SalaTetris extends ExperienciaBase {
             const ctxH = cHold.getContext('2d');
             ctxH.clearRect(0, 0, cHold.width, cHold.height);
             if (this.partida.holdTipo) {
-                this._dibujarMiniPieza2D(ctxH, this.partida.holdTipo, cHold.width / 2, cHold.height / 2, 18);
+                const tamH = Math.max(8, Math.floor(Math.min(cHold.width / 5.2, cHold.height / 3.2)));
+                this._dibujarMiniPieza2D(ctxH, this.partida.holdTipo, cHold.width / 2, cHold.height / 2, tamH);
             }
         }
 
@@ -1444,9 +1462,19 @@ export class SalaTetris extends ExperienciaBase {
         if (cNext) {
             const ctxN = cNext.getContext('2d');
             ctxN.clearRect(0, 0, cNext.width, cNext.height);
-            this.partida.colaSiguientes.slice(0, 3).forEach((tipo, idx) => {
-                this._dibujarMiniPieza2D(ctxN, tipo, cNext.width / 2, 36 + idx * 66, 16);
-            });
+            const piezas = this.partida.colaSiguientes.slice(0, 3);
+            if (cNext.width > cNext.height) {
+                const pasoX = cNext.width / 3;
+                const tamN = Math.max(7, Math.floor(Math.min(pasoX / 4.8, cNext.height / 3.2)));
+                piezas.forEach((tipo, idx) => {
+                    this._dibujarMiniPieza2D(ctxN, tipo, (idx + 0.5) * pasoX, cNext.height / 2, tamN);
+                });
+            } else {
+                const tamN = Math.max(10, Math.floor(Math.min(cNext.width / 5.4, cNext.height / 12)));
+                piezas.forEach((tipo, idx) => {
+                    this._dibujarMiniPieza2D(ctxN, tipo, cNext.width / 2, 36 + idx * 66, tamN);
+                });
+            }
         }
     }
 

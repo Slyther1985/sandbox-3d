@@ -695,6 +695,47 @@ try {
     registrarError(`No se pudo validar Fase 8: ${err.message}`);
 }
 
+// 6h. Verificar Fase 9: Tetris Estilo Switch 3 Columnas (DAS/ARR) y Superdeportivos Esculpidos (ExtrudeGeometry + Clearcoat)
+try {
+    const srcHtml = fs.readFileSync(path.join(RAIZ, 'index.html'), 'utf8');
+    const srcCss = fs.readFileSync(path.join(RAIZ, 'css', 'estilos.css'), 'utf8');
+    const srcInterfaz = fs.readFileSync(path.join(RAIZ, 'js', 'interfaz.js'), 'utf8');
+    const srcTetris = fs.readFileSync(path.join(RAIZ, 'js', 'experiencias', 'salaTetris.js'), 'utf8');
+    const srcAvatar = fs.readFileSync(path.join(RAIZ, 'js', 'avatar.js'), 'utf8');
+
+    const switchTetrisOk =
+        /grid-template-columns:\s*minmax\(150px,\s*24vw\)\s+1fr\s+minmax\(150px,\s*24vw\)/.test(srcCss) &&
+        /tetris-ala-izq/.test(srcHtml) &&
+        /tetris-ala-der/.test(srcHtml) &&
+        /btn-tetris-rotar/.test(srcCss) &&
+        /56px/.test(srcCss) &&
+        /detenerRepeticionTetris/.test(srcInterfaz) &&
+        /setPointerCapture/.test(srcInterfaz) &&
+        /estadoControles\.modoTetrisActivo\s*\|\|\s*estadoControles\.modoCeremoniaPodio/.test(srcInterfaz) &&
+        /estadoControles\.entidadCercana\s*=\s*null/.test(srcTetris);
+
+    const kartsEsculpidosOk =
+        /ExtrudeGeometry/.test(srcAvatar) &&
+        /MeshPhysicalMaterial/.test(srcAvatar) &&
+        /clearcoat:\s*1\.0/.test(srcAvatar) &&
+        /metalness:\s*0\.88/.test(srcAvatar) &&
+        /matPinza/.test(srcAvatar) &&
+        /liberarObjeto3D/.test(srcAvatar) &&
+        /crearPerfilExtruido/.test(srcAvatar);
+
+    if (!switchTetrisOk || !kartsEsculpidosOk) {
+        registrarError(
+            `Falta configuración Fase 9 (switchTetris=${switchTetrisOk}, kartsEsculpidos=${kartsEsculpidosOk}).`
+        );
+    } else {
+        registrarOk(
+            'Fase 9 verificada: Tetris Switch 3 columnas con D-Pad DAS/ARR, prompt oculto y superdeportivos ExtrudeGeometry + clearcoat.'
+        );
+    }
+} catch (err) {
+    registrarError(`No se pudo validar Fase 9: ${err.message}`);
+}
+
 // 7. Verificar server/index.js (/health, perfiles.json, rutas HTTP/WS y rechazo de duplicados)
 const rutaServidor = path.join(RAIZ, 'server', 'index.js');
 if (fs.existsSync(rutaServidor)) {
