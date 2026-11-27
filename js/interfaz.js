@@ -6,6 +6,7 @@ import {
     CATALOGO_BLOQUES,
     CATALOGO_ITEMS,
     CATALOGO_KARTS,
+    CATALOGO_MUNDOS,
     CATALOGO_PIEZAS_KART,
     PALETA_AVATAR,
     RAREZAS
@@ -54,6 +55,8 @@ let timerNotificacion = null;
 let tabMenuUnificadoActiva = 'sala';
 let pointerJoystickActivo = null;
 let filtroMochilaActivo = 'todos';
+let filtroMundoActivo = 'todos';
+let busquedaMundoActiva = '';
 let limpiarDasTetrisActivo = null;
 
 /**
@@ -174,6 +177,8 @@ function cambiarTabMenuUnificado(tabId = 'sala') {
         renderizarInventario();
     } else if (destino === 'jugador') {
         renderizarResumenJugador();
+    } else if (destino === 'sala') {
+        renderizarWarpMundos();
     }
     sincronizarVisibilidadControlesMoviles();
 }
@@ -1343,23 +1348,121 @@ function vincularMenuRobloxYSocial(reabrirBienvenida) {
         }
     });
 
-    // Teletransporte rápido entre experiencias
-    el('btn-warp-lobby')?.addEventListener('click', () => {
-        cerrarPanelesFlotantes();
-        RegistroExperiencias.cambiarExperiencia('lobby', contextoGlobal);
+    // Buscador y filtros de categoría para el launcher de mundos
+    const inputBuscarMundo = el('input-buscar-mundo');
+    inputBuscarMundo?.addEventListener('input', () => {
+        busquedaMundoActiva = inputBuscarMundo.value.trim().toLowerCase();
+        renderizarWarpMundos();
     });
-    el('btn-warp-construccion')?.addEventListener('click', () => {
-        cerrarPanelesFlotantes();
-        RegistroExperiencias.cambiarExperiencia('construccion', contextoGlobal);
+
+    const contFiltrosMundos = el('filtros-mundos');
+    if (contFiltrosMundos) {
+        for (const btnFiltro of contFiltrosMundos.querySelectorAll('[data-filtro-mundo]')) {
+            btnFiltro.addEventListener('click', () => {
+                filtroMundoActivo = btnFiltro.getAttribute('data-filtro-mundo') || 'todos';
+                for (const b of contFiltrosMundos.querySelectorAll('[data-filtro-mundo]')) {
+                    b.classList.toggle('activo', b === btnFiltro);
+                }
+                reproducirSonido('interaccion');
+                renderizarWarpMundos();
+            });
+        }
+    }
+
+    // Teletransporte rápido entre experiencias (data-driven)
+    renderizarWarpMundos();
+}
+
+/**
+ * Renderiza el launcher de mundos/salas desde CATALOGO_MUNDOS con búsqueda, categorías y favoritos.
+ */
+function renderizarWarpMundos() {
+    const cont = el('lista-warp-mundos');
+    const contador = el('contador-mundos');
+    if (!cont) return;
+    cont.innerHTML = '';
+
+    const favoritos = new Set(estadoJugador.favoritosMundos || []);
+    const filtrados = CATALOGO_MUNDOS.filter((mundo) => {
+        if (filtroMundoActivo === 'favoritos' && !favoritos.has(mundo.id)) {
+            return false;
+        }
+        if (
+            filtroMundoActivo !== 'todos' &&
+            filtroMundoActivo !== 'favoritos' &&
+            mundo.categoria !== filtroMundoActivo
+        ) {
+            return false;
+        }
+        if (busquedaMundoActiva) {
+            const texto = `${mundo.nombre} ${mundo.categoria || ''} ${mundo.id}`.toLowerCase();
+            if (!texto.includes(busquedaMundoActiva)) return false;
+        }
+        return true;
     });
-    el('btn-warp-karts')?.addEventListener('click', () => {
-        cerrarPanelesFlotantes();
-        RegistroExperiencias.cambiarExperiencia('karts', contextoGlobal);
-    });
-    el('btn-warp-tetris')?.addEventListener('click', () => {
-        cerrarPanelesFlotantes();
-        RegistroExperiencias.cambiarExperiencia('tetris', contextoGlobal);
-    });
+
+    if (contador) {
+        contador.textContent = `${filtrados.length} / ${CATALOGO_MUNDOS.length}`;
+    }
+
+    if (filtrados.length === 0) {
+        const vacio = document.createElement('div');
+        vacio.className = 'mochila-vacia mundos-vacio';
+        vacio.textContent = 'No se encontraron salas con ese filtro.';
+        cont.appendChild(vacio);
+        return;
+    }
+
+    for (const mundo of filtrados) {
+        const nivelReq = mundo.desbloqueadoPorNivel || 1;
+        const bloqueado = estadoJugador.nivel < nivelReq;
+        const esActual = estadoJugador.experienciaActiva === mundo.id;
+        const esFav = favoritos.has(mundo.id);
+
+        const fila = document.createElement('div');
+        fila.className = 'tarjeta-mundo-warp';
+        fila.setAttribute('role', 'listitem');
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `btn-hud btn-mundo-principal ${bloqueado ? 'bloqueado' : ''} ${esActual ? 'activo-mundo' : ''}`;
+        btn.disabled = bloqueado;
+        btn.textContent = bloqueado
+            ? `🔒 ${mundo.nombre} (Nv.${nivelReq})`
+            : `${mundo.icono || '🌐'} ${mundo.nombre}${esActual ? ' · Aquí' : ''}`;
+        btn.addEventListener('click', () => {
+            if (bloqueado) {
+                mostrarNotificacion(`Desbloquea nivel ${nivelReq} para entrar.`, 'info');
+                return;
+            }
+            cerrarPanelesFlotantes();
+            RegistroExperiencias.cambiarExperiencia(mundo.id, contextoGlobal);
+        });
+
+        const btnFav = document.createElement('button');
+        btnFav.type = 'button';
+        btnFav.className = `btn-favorito-mundo ${esFav ? 'activo' : ''}`;
+        btnFav.textContent = esFav ? '★' : '☆';
+        btnFav.title = esFav ? 'Quitar de favoritos' : 'Añadir a favoritos';
+        btnFav.setAttribute('aria-label', btnFav.title);
+        btnFav.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const listaFav = Array.isArray(estadoJugador.favoritosMundos) ? [...estadoJugador.favoritosMundos] : [];
+            const idx = listaFav.indexOf(mundo.id);
+            if (idx >= 0) {
+                listaFav.splice(idx, 1);
+            } else {
+                listaFav.push(mundo.id);
+            }
+            estadoJugador.favoritosMundos = listaFav;
+            guardarEstadoLocal();
+            reproducirSonido('interaccion');
+            renderizarWarpMundos();
+        });
+
+        fila.append(btn, btnFav);
+        cont.appendChild(fila);
+    }
 }
 
 /**

@@ -4,11 +4,11 @@ Plataforma Sandbox 3D multijugador en navegador (estilo Roblox) construida con T
 
 ## 1. Reglas Arquitectónicas No Negociables
 
-1. **Grafo Acíclico Dirigido (DAG ES6)**: Prohibidas las dependencias circulares entre módulos `js/**/*.js` (16 módulos). Jerarquía estricta:
+1. **Grafo Acíclico Dirigido (DAG ES6)**: Prohibidas las dependencias circulares entre módulos `js/**/*.js` (17 módulos). Jerarquía estricta:
    - Nivel 0 (hojas): `constantes.js`, `config.js`, `partituras.js`
    - Nivel 1: `estado.js`, `recursos.js`, `audio.js`
    - Nivel 2: `avatar.js`, `nucleoSandbox.js`, `fisicaSandbox.js`, `red.js`
-   - Nivel 3 (experiencias): `js/experiencias/*.js` (`lobbyCentral.js`, `zonaConstruccion.js`, `arenaTurboKarts.js`, `salaTetris.js`)
+   - Nivel 3 (experiencias): `js/experiencias/*.js` (`lobbyCentral.js`, `zonaConstruccion.js`, `arenaTurboKarts.js`, `salaTetris.js`, `arenaParkour.js`)
    - Nivel 4: `interfaz.js`, `main.js`
 2. **Limpieza Obligatoria de GPU (`liberarObjeto3D`)**: Todo módulo que desmonte una escena, avatar, cúpula de cielo (`crearCupulaCielo(tema)`) o entidad dinámica debe llamar a `liberarObjeto3D(objeto)` desde `js/recursos.js`. Toda textura dinámica por instancia debe marcarse con `userData.esClonTemporal = true`.
 3. **Resiliencia Offline/Online y Persistencia de Sala**: El cliente es jugable sin servidor (`modo: 'offline'`) con respaldo local (`construccionGuardada`). Al confirmar perfil único (sin PIN) en `#pantalla-bienvenida`, se conecta por defecto a `'SALA-PUBLICA'`. `server/index.js` persiste parcelas en `server/data/parcelas.json` y perfiles únicos (clave normalizada sin duplicados) en `server/data/perfiles.json`, envía `estado_parcela_completo` y asigna `slotParrilla` (`0..7`) único vía `sala_actualizada`.
@@ -34,7 +34,7 @@ Para agregar un minijuego nuevo **sin modificar el núcleo ni el servidor**:
 ## 3. Esquemas Canónicos de Estado (`js/estado.js`)
 
 - **`estadoJugador`**:
-  `{ id, apodo, monedas, nivel, xp, inventario: [], equipado: { cabeza, espalda, aura }, apariencia: { piel, torso, piernas, rostro }, construccionGuardada: [], configKart: { chasis, ruedas, aleron, color }, mejorVueltaKart: null, mejorPuntajeTetris: 0, posicion: { x, y, z }, rotacion, enVehiculo: false, experienciaActiva: 'lobby' }`
+  `{ id, apodo, monedas, nivel, xp, inventario: [], equipado: { cabeza, espalda, aura }, apariencia: { piel, torso, piernas, rostro }, construccionGuardada: [], configKart: { chasis, ruedas, aleron, color }, mejorVueltaKart: null, mejorPuntajeTetris: 0, favoritosMundos: [], progresoExperiencias: {}, posicion: { x, y, z }, rotacion, enVehiculo: false, experienciaActiva: 'lobby' }`
 - **`estadoRed`**:
   `{ conectado: false, modo: 'offline', codigoSala: null, esAnfitrion: false, slotParrilla: 0, bloquesSala: null, jugadoresRemotos: Map }`
 - **`estadoSandbox`**:
@@ -47,7 +47,7 @@ Para agregar un minijuego nuevo **sin modificar el núcleo ni el servidor**:
 | Renderizado | `lienzo-3d` |
 | Bienvenida y PWA | `pantalla-bienvenida`, `tab-perfil-existente`, `tab-perfil-nuevo`, `panel-perfil-existente`, `panel-perfil-nuevo`, `estado-carga-perfiles`, `btn-recargar-perfiles`, `lista-perfiles-existentes`, `btn-entrar-parque`, `input-nuevo-apodo`, `btn-crear-jugador`, `mensaje-error-bienvenida`, `btn-pantalla-completa` |
 | HUD Barra Roblox | `hud-superior`, `btn-hud-menu`, `btn-hud-chat`, `btn-hud-gestos`, `hud-monedas`, `hud-nivel`, `btn-musica`, `btn-pantalla-completa`, `panel-gestos`, `btn-cerrar-gestos`, `btn-gesto-saludar`, `btn-gesto-bailar`, `btn-gesto-celebrar`, `btn-gesto-sentarse`, `panel-chat-rapido`, `btn-cerrar-chat`, `input-chat-rapido`, `btn-enviar-chat` |
-| Menú Unificado (4 Tabs) | `menu-principal-unificado`, `btn-cerrar-menu-unificado`, `tab-menu-sala`, `tab-menu-avatar`, `tab-menu-mochila`, `tab-menu-jugador`, `panel-menu-sala`, `panel-menu-avatar`, `panel-menu-mochila`, `panel-menu-jugador`, `indicador-estado-red`, `contador-jugadores`, `hud-experiencia`, `input-apodo`, `input-codigo-sala`, `btn-conectar-sala`, `btn-desconectar-sala`, `btn-warp-lobby`, `btn-warp-construccion`, `btn-warp-karts`, `btn-warp-tetris` |
+| Menú Unificado (4 Tabs) | `menu-principal-unificado`, `btn-cerrar-menu-unificado`, `tab-menu-sala`, `tab-menu-avatar`, `tab-menu-mochila`, `tab-menu-jugador`, `panel-menu-sala`, `panel-menu-avatar`, `panel-menu-mochila`, `panel-menu-jugador`, `indicador-estado-red`, `contador-jugadores`, `hud-experiencia`, `input-apodo`, `input-codigo-sala`, `btn-conectar-sala`, `btn-desconectar-sala`, `lista-warp-mundos`, `input-buscar-mundo`, `filtros-mundos`, `contador-mundos` |
 | Avatar / Mochila / Jugador | `selector-piel`, `selector-torso`, `selector-piernas`, `selector-rostro`, `selector-accesorios-avatar`, `filtros-mochila`, `contador-mochila`, `lista-inventario`, `hud-apodo`, `hud-xp-barra`, `btn-audio`, `btn-cambiar-jugador`, `jugador-record-kart`, `jugador-record-tetris`, `input-codigo-perfil`, `btn-exportar-perfil`, `btn-importar-perfil` |
 | Avisos | `aviso-interaccion`, `contenedor-notificaciones`, `aviso-girar-pantalla`, `btn-cerrar-girar-pantalla` |
 | Construcción Voxel | `btn-toggle-bloques`, `muestra-bloque-activo`, `texto-btn-bloques`, `popover-bloques`, `hotbar-bloques`, `lista-bloques-hotbar`, `btn-modo-construccion`, `btn-guardar-parcela`, `btn-limpiar-parcela` |

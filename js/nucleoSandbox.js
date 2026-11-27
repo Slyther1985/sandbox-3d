@@ -395,6 +395,8 @@ export class ExperienciaBase {
  */
 export const RegistroExperiencias = {
     experiencias: new Map(),
+    cargadores: new Map(),
+    cargandoId: null,
     contextoGlobal: null,
 
     /**
@@ -410,7 +412,45 @@ export const RegistroExperiencias = {
     },
 
     /**
+     * Registra un cargador dinámico (lazy-loading) para una experiencia.
+     * @param {string} id
+     * @param {() => Promise<ExperienciaBase>} cargadorFn
+     */
+    registrarCargador(id, cargadorFn) {
+        if (typeof id !== 'string' || typeof cargadorFn !== 'function') {
+            throw new Error('registrarCargador requiere (id: string, cargadorFn: Function).');
+        }
+        this.cargadores.set(id, cargadorFn);
+    },
+
+    /**
+     * Indica si la experiencia está ya instanciada o cuenta con un cargador lazy.
+     * @param {string} id
+     * @returns {boolean}
+     */
+    tieneExperiencia(id) {
+        return this.experiencias.has(id) || this.cargadores.has(id);
+    },
+
+    /**
+     * Garantiza que la experiencia esté cargada e instanciada.
+     * @param {string} id
+     * @returns {Promise<ExperienciaBase|null>}
+     */
+    async asegurarExperiencia(id) {
+        const existente = this.experiencias.get(id);
+        if (existente) return existente;
+
+        const cargador = this.cargadores.get(id);
+        if (!cargador) return null;
+
+        const instancia = await cargador();
+        return this.registrarExperiencia(instancia);
+    },
+
+    /**
      * Desmonta la experiencia actual y monta la experiencia destino.
+     * Si el destino está registrado vía lazy-loading, lo descarga bajo demanda antes de montarlo.
      * @param {string} idDestino
      * @param {object} [contextoSandbox]
      * @returns {boolean}
@@ -418,6 +458,27 @@ export const RegistroExperiencias = {
     cambiarExperiencia(idDestino, contextoSandbox = this.contextoGlobal) {
         const destino = this.experiencias.get(idDestino);
         if (!destino) {
+            if (this.cargadores.has(idDestino)) {
+                if (this.cargandoId === idDestino) return false;
+                this.cargandoId = idDestino;
+                notificarEstado('aviso', { mensaje: `Cargando sala "${idDestino}"...` });
+                this.asegurarExperiencia(idDestino)
+                    .then((cargada) => {
+                        this.cargandoId = null;
+                        if (cargada) {
+                            this.cambiarExperiencia(idDestino, contextoSandbox);
+                        }
+                    })
+                    .catch((err) => {
+                        this.cargandoId = null;
+                        console.error(`Error cargando experiencia "${idDestino}":`, err);
+                        notificarEstado('aviso', {
+                            mensaje: `No se pudo cargar "${idDestino}". Intenta de nuevo.`
+                        });
+                    });
+                return true;
+            }
+
             notificarEstado('aviso', {
                 mensaje: `Experiencia "${idDestino}" aún en construcción. ¡Próximamente!`
             });

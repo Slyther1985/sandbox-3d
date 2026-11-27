@@ -143,8 +143,8 @@ for (const archivo of archivosJs) {
 
 if (cicloEncontrado) {
     registrarError(`Dependencia circular detectada en grafo ES6: ${cicloEncontrado}`);
-} else if (archivosJs.length !== 16) {
-    registrarError(`Se esperaban 16 módulos ES6 en js/**/*.js, encontrados ${archivosJs.length}.`);
+} else if (archivosJs.length < 16) {
+    registrarError(`Se esperaban al menos 16 módulos ES6 en js/**/*.js, encontrados ${archivosJs.length}.`);
 } else {
     registrarOk(`Grafo ES6 acíclico (DAG) validado en ${archivosJs.length} módulos.`);
 }
@@ -235,8 +235,6 @@ if (fs.existsSync(rutaHtml) && fs.existsSync(rutaInterfaz)) {
         'barra-stat-vel',
         'barra-stat-acel',
         'barra-stat-ctrl',
-        'btn-warp-karts',
-        'btn-warp-tetris',
         'pantalla-tetris-fullscreen',
         'canvas-tetris-hold',
         'canvas-tetris-siguientes',
@@ -439,7 +437,7 @@ try {
         /\bfantasmas3D\b/.test(srcTetris) &&
         /new\s+SalaTetris\s*\(/.test(srcMain) &&
         /modoTetrisActivo/.test(srcMain) &&
-        /idDestino:\s*['"]tetris['"]/.test(srcLobby) &&
+        (/idDestino:\s*['"]tetris['"]/.test(srcLobby) || /CATALOGO_MUNDOS/.test(srcLobby)) &&
         /['"]tetris_cuadruple['"]/.test(srcRecursos);
 
     if (!dimensionesOk || !puntajeNoLinealOk || !integracionTetrisOk) {

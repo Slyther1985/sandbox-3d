@@ -53,7 +53,8 @@ export const MAPA_MUSICA_EXPERIENCIA = Object.freeze({
     lobby: 'lobby_parque',
     karts: 'karts_topgear',
     tetris: 'tetris_ruso',
-    construccion: 'taller_clasico'
+    construccion: 'taller_clasico',
+    parkour: 'lobby_parque'
 });
 
 export const CATALOGO_PARTITURAS = Object.freeze({

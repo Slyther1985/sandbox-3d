@@ -229,3 +229,61 @@ export const CATALOGO_PIEZAS_KART = Object.freeze({
         '#f8fafc'
     ]
 });
+
+export const CATALOGO_MUNDOS = Object.freeze([
+    {
+        id: 'lobby',
+        nombre: 'Parque Estelar',
+        icono: '🎡',
+        color: 0x38bdf8,
+        musica: 'lobby_parque',
+        categoria: 'hub',
+        desbloqueadoPorNivel: 1,
+        spawn: { x: 0, y: 0.5, z: 26 },
+        portal: { x: 0, y: 0, z: 0, rotacionY: 0 }
+    },
+    {
+        id: 'construccion',
+        nombre: 'Taller Voxel',
+        icono: '🧱',
+        color: 0x22c55e,
+        musica: 'taller_clasico',
+        categoria: 'creativo',
+        desbloqueadoPorNivel: 1,
+        spawn: { x: 0, y: 0.5, z: 0 },
+        portal: { x: -30, y: 0, z: -26, rotacionY: 0.42 }
+    },
+    {
+        id: 'karts',
+        nombre: 'Turbo Karts GP',
+        icono: '🏎️',
+        color: 0xf97316,
+        musica: 'karts_topgear',
+        categoria: 'carreras',
+        desbloqueadoPorNivel: 1,
+        spawn: { x: 0, y: 0.5, z: 0 },
+        portal: { x: 0, y: 0, z: -34, rotacionY: 0 }
+    },
+    {
+        id: 'tetris',
+        nombre: 'Tetris Arcade',
+        icono: '🕹️',
+        color: 0xa855f7,
+        musica: 'tetris_ruso',
+        categoria: 'arcade',
+        desbloqueadoPorNivel: 1,
+        spawn: { x: 0, y: 0.5, z: 0 },
+        portal: { x: 30, y: 0, z: -26, rotacionY: -0.42 }
+    },
+    {
+        id: 'parkour',
+        nombre: 'Torre Celeste',
+        icono: '☁️',
+        color: 0x06b6d4,
+        musica: 'lobby_parque',
+        categoria: 'arcade',
+        desbloqueadoPorNivel: 1,
+        spawn: { x: 0, y: 1.0, z: 0 },
+        portal: { x: -16, y: 0, z: 32, rotacionY: 2.35 }
+    }
+]);

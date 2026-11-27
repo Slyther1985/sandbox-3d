@@ -1,7 +1,7 @@
 # MAPA_SIMBOLOS.md
 
 Índice automático de módulos ES6, importaciones, exportaciones, clases, funciones y constantes en `js/**/*.js`.
-Total de módulos analizados: **16**
+Total de módulos analizados: **17**
 
 ## `js/audio.js`
 
@@ -26,15 +26,21 @@ Total de módulos analizados: **16**
 ## `js/constantes.js`
 
 - **Imports**: *(ninguno — hoja del DAG)*
-- **Exports**: `DIMENSION_LOBBY` [const] (L6), `MITAD_LOBBY` [const] (L7), `DIMENSION_PARCELA` [const] (L8), `MITAD_PARCELA` [const] (L9), `DIMENSION_PISTA_KARTS` [const] (L10), `MITAD_PISTA_KARTS` [const] (L11), `VUELTAS_CARRERA_KARTS` [const] (L12), `LIMITE_MUNDO` [const] (L13), `ALTURA_CAIDA_VACIO` [const] (L14), `GRAVEDAD_BASE` [const] (L16), `VELOCIDAD_CAMINAR` [const] (L17), `VELOCIDAD_SPRINT` [const] (L18), `FUERZA_SALTO` [const] (L19), `ALTURA_AVATAR` [const] (L20), `RADIO_COLISION_AVATAR` [const] (L21), `DISTANCIA_INTERACCION` [const] (L22), `TASA_ENVIO_HZ` [const] (L24), `INTERVALO_ENVIO_MS` [const] (L25), `XP_BASE_NIVEL` [const] (L27), `MONEDAS_INICIALES` [const] (L28), `COMUN` [const] (L30), `RARO` [const] (L31), `EPICO` [const] (L32), `LEGENDARIO` [const] (L33), `RAREZAS` [const] (L35), `PALETA_AVATAR` [const] (L42), `CATALOGO_BLOQUES` [const] (L49), `CATALOGO_ITEMS` [const] (L60), `CATALOGO_KARTS` [const] (L117), `CATALOGO_PIEZAS_KART` [const] (L160)
-- **Constantes**: `DIMENSION_LOBBY` (L6), `MITAD_LOBBY` (L7), `DIMENSION_PARCELA` (L8), `MITAD_PARCELA` (L9), `DIMENSION_PISTA_KARTS` (L10), `MITAD_PISTA_KARTS` (L11), `VUELTAS_CARRERA_KARTS` (L12), `LIMITE_MUNDO` (L13), `ALTURA_CAIDA_VACIO` (L14), `GRAVEDAD_BASE` (L16), `VELOCIDAD_CAMINAR` (L17), `VELOCIDAD_SPRINT` (L18), `FUERZA_SALTO` (L19), `ALTURA_AVATAR` (L20), `RADIO_COLISION_AVATAR` (L21), `DISTANCIA_INTERACCION` (L22), `TASA_ENVIO_HZ` (L24), `INTERVALO_ENVIO_MS` (L25), `XP_BASE_NIVEL` (L27), `MONEDAS_INICIALES` (L28), `COMUN` (L30), `RARO` (L31), `EPICO` (L32), `LEGENDARIO` (L33), `RAREZAS` (L35), `PALETA_AVATAR` (L42), `CATALOGO_BLOQUES` (L49), `CATALOGO_ITEMS` (L60), `CATALOGO_KARTS` (L117), `CATALOGO_PIEZAS_KART` (L160)
+- **Exports**: `DIMENSION_LOBBY` [const] (L6), `MITAD_LOBBY` [const] (L7), `DIMENSION_PARCELA` [const] (L8), `MITAD_PARCELA` [const] (L9), `DIMENSION_PISTA_KARTS` [const] (L10), `MITAD_PISTA_KARTS` [const] (L11), `VUELTAS_CARRERA_KARTS` [const] (L12), `LIMITE_MUNDO` [const] (L13), `ALTURA_CAIDA_VACIO` [const] (L14), `GRAVEDAD_BASE` [const] (L16), `VELOCIDAD_CAMINAR` [const] (L17), `VELOCIDAD_SPRINT` [const] (L18), `FUERZA_SALTO` [const] (L19), `ALTURA_AVATAR` [const] (L20), `RADIO_COLISION_AVATAR` [const] (L21), `DISTANCIA_INTERACCION` [const] (L22), `TASA_ENVIO_HZ` [const] (L24), `INTERVALO_ENVIO_MS` [const] (L25), `XP_BASE_NIVEL` [const] (L27), `MONEDAS_INICIALES` [const] (L28), `COMUN` [const] (L30), `RARO` [const] (L31), `EPICO` [const] (L32), `LEGENDARIO` [const] (L33), `RAREZAS` [const] (L35), `PALETA_AVATAR` [const] (L42), `CATALOGO_BLOQUES` [const] (L49), `CATALOGO_ITEMS` [const] (L60), `CATALOGO_KARTS` [const] (L117), `CATALOGO_PIEZAS_KART` [const] (L160), `CATALOGO_MUNDOS` [const] (L233)
+- **Constantes**: `DIMENSION_LOBBY` (L6), `MITAD_LOBBY` (L7), `DIMENSION_PARCELA` (L8), `MITAD_PARCELA` (L9), `DIMENSION_PISTA_KARTS` (L10), `MITAD_PISTA_KARTS` (L11), `VUELTAS_CARRERA_KARTS` (L12), `LIMITE_MUNDO` (L13), `ALTURA_CAIDA_VACIO` (L14), `GRAVEDAD_BASE` (L16), `VELOCIDAD_CAMINAR` (L17), `VELOCIDAD_SPRINT` (L18), `FUERZA_SALTO` (L19), `ALTURA_AVATAR` (L20), `RADIO_COLISION_AVATAR` (L21), `DISTANCIA_INTERACCION` (L22), `TASA_ENVIO_HZ` (L24), `INTERVALO_ENVIO_MS` (L25), `XP_BASE_NIVEL` (L27), `MONEDAS_INICIALES` (L28), `COMUN` (L30), `RARO` (L31), `EPICO` (L32), `LEGENDARIO` (L33), `RAREZAS` (L35), `PALETA_AVATAR` (L42), `CATALOGO_BLOQUES` (L49), `CATALOGO_ITEMS` (L60), `CATALOGO_KARTS` (L117), `CATALOGO_PIEZAS_KART` (L160), `CATALOGO_MUNDOS` (L233)
 
 ## `js/estado.js`
 
 - **Imports**: `./constantes.js` (L5)
-- **Exports**: `estadoJugador` [const] (L24), `estadoRed` [const] (L53), `estadoSandbox` [const] (L63), `estadoControles` [const] (L70), `suscribirEstado` [function] (L104), `notificarEstado` [function] (L114), `obtenerXpParaSiguienteNivel` [function] (L129), `construirResumenPerfil` [function] (L137), `aplicarDatosPerfil` [function] (L157), `cargarPerfilesLocales` [function] (L260), `restablecerPerfilNuevo` [function] (L296), `guardarEstadoLocal` [function] (L327), `cargarEstadoLocal` [function] (L348), `exportarCodigoPerfil` [function] (L363), `importarCodigoPerfil` [function] (L378)
-- **Funciones**: `suscribirEstado` (L104), `notificarEstado` (L114), `obtenerXpParaSiguienteNivel` (L129), `construirResumenPerfil` (L137), `aplicarDatosPerfil` (L157), `cargarPerfilesLocales` (L260), `restablecerPerfilNuevo` (L296), `guardarEstadoLocal` (L327), `cargarEstadoLocal` (L348), `exportarCodigoPerfil` (L363), `importarCodigoPerfil` (L378)
-- **Constantes**: `CLAVE_ALMACENAMIENTO` (L15), `CLAVE_PERFILES_LOCALES` (L16), `MAPA_MIGRACION_CHASIS` (L18), `estadoJugador` (L24), `estadoRed` (L53), `estadoSandbox` (L63), `estadoControles` (L70), `suscriptores` (L97)
+- **Exports**: `estadoJugador` [const] (L24), `estadoRed` [const] (L55), `estadoSandbox` [const] (L65), `estadoControles` [const] (L72), `suscribirEstado` [function] (L106), `notificarEstado` [function] (L116), `obtenerXpParaSiguienteNivel` [function] (L131), `construirResumenPerfil` [function] (L139), `aplicarDatosPerfil` [function] (L161), `cargarPerfilesLocales` [function] (L284), `restablecerPerfilNuevo` [function] (L320), `guardarEstadoLocal` [function] (L353), `cargarEstadoLocal` [function] (L374), `exportarCodigoPerfil` [function] (L389), `importarCodigoPerfil` [function] (L404)
+- **Funciones**: `suscribirEstado` (L106), `notificarEstado` (L116), `obtenerXpParaSiguienteNivel` (L131), `construirResumenPerfil` (L139), `aplicarDatosPerfil` (L161), `cargarPerfilesLocales` (L284), `restablecerPerfilNuevo` (L320), `guardarEstadoLocal` (L353), `cargarEstadoLocal` (L374), `exportarCodigoPerfil` (L389), `importarCodigoPerfil` (L404)
+- **Constantes**: `CLAVE_ALMACENAMIENTO` (L15), `CLAVE_PERFILES_LOCALES` (L16), `MAPA_MIGRACION_CHASIS` (L18), `estadoJugador` (L24), `estadoRed` (L55), `estadoSandbox` (L65), `estadoControles` (L72), `suscriptores` (L99)
+
+## `js/experiencias/arenaParkour.js`
+
+- **Imports**: `../constantes.js` (L7), `../estado.js` (L8), `../recursos.js` (L9), `../nucleoSandbox.js` (L15), `../red.js` (L16)
+- **Exports**: `ArenaParkour` [class] (L18)
+- **Clases**: `ArenaParkour extends ExperienciaBase` (L18)
 
 ## `js/experiencias/arenaTurboKarts.js`
 
@@ -72,31 +78,31 @@ Total de módulos analizados: **16**
 
 ## `js/interfaz.js`
 
-- **Imports**: `./constantes.js` (L5), `./estado.js` (L13), `./recursos.js` (L27), `./audio.js` (L28), `./avatar.js` (L34), `./fisicaSandbox.js` (L40), `./nucleoSandbox.js` (L41), `./red.js` (L42)
-- **Exports**: `mostrarNotificacion` [function] (L85), `actualizarHUD` [function] (L704), `inicializarInterfaz` [function] (L1723)
-- **Funciones**: `detenerRepeticionTetris` (L62), `el` (L75), `mostrarNotificacion` (L85), `cerrarPanelesFlotantes` (L110), `sincronizarVisibilidadControlesMoviles` (L128), `renderizarResumenJugador` (L140), `cambiarTabMenuUnificado` (L151), `alternarMenuUnificado` (L185), `alternarGarajeKart` (L210), `aplicarCambioApariencia` (L229), `dispararGestoSocial` (L243), `enviarChatRapido` (L253), `ejecutarInteraccion` (L264), `renderizarInventario` (L276), `renderizarEstudioAvatar` (L387), `renderizarHotbarBloques` (L464), `formatearTiempoCarrera` (L524), `renderizarGarajeKart` (L536), `renderizarBannerPodioF1` (L655), `actualizarHUD` (L704), `renderizarOverlayTetris` (L873), `vincularControlesEntrada` (L921), `vincularMenuRobloxYSocial` (L1228), `esDispositivoMovilTactil` (L1369), `solicitarPantallaCompletaSeguro` (L1379), `alternarPantallaCompleta` (L1404), `inicializarPantallaBienvenida` (L1427), `inicializarInterfaz` (L1723)
+- **Imports**: `./constantes.js` (L5), `./estado.js` (L14), `./recursos.js` (L28), `./audio.js` (L29), `./avatar.js` (L35), `./fisicaSandbox.js` (L41), `./nucleoSandbox.js` (L42), `./red.js` (L43)
+- **Exports**: `mostrarNotificacion` [function] (L88), `actualizarHUD` [function] (L709), `inicializarInterfaz` [function] (L1826)
+- **Funciones**: `detenerRepeticionTetris` (L65), `el` (L78), `mostrarNotificacion` (L88), `cerrarPanelesFlotantes` (L113), `sincronizarVisibilidadControlesMoviles` (L131), `renderizarResumenJugador` (L143), `cambiarTabMenuUnificado` (L154), `alternarMenuUnificado` (L190), `alternarGarajeKart` (L215), `aplicarCambioApariencia` (L234), `dispararGestoSocial` (L248), `enviarChatRapido` (L258), `ejecutarInteraccion` (L269), `renderizarInventario` (L281), `renderizarEstudioAvatar` (L392), `renderizarHotbarBloques` (L469), `formatearTiempoCarrera` (L529), `renderizarGarajeKart` (L541), `renderizarBannerPodioF1` (L660), `actualizarHUD` (L709), `renderizarOverlayTetris` (L878), `vincularControlesEntrada` (L926), `vincularMenuRobloxYSocial` (L1233), `renderizarWarpMundos` (L1379), `esDispositivoMovilTactil` (L1472), `solicitarPantallaCompletaSeguro` (L1482), `alternarPantallaCompleta` (L1507), `inicializarPantallaBienvenida` (L1530), `inicializarInterfaz` (L1826)
 
 ## `js/main.js`
 
-- **Imports**: `./config.js` (L6), `./estado.js` (L7), `./avatar.js` (L14), `./fisicaSandbox.js` (L15), `./nucleoSandbox.js` (L16), `./red.js` (L20), `./audio.js` (L21), `./interfaz.js` (L22), `./experiencias/lobbyCentral.js` (L23), `./experiencias/zonaConstruccion.js` (L24), `./experiencias/arenaTurboKarts.js` (L25), `./experiencias/salaTetris.js` (L26)
-- **Exports**: `resolverColisionCamara` [function] (L74)
-- **Funciones**: `recolectarMallasBloqueantes` (L41), `resolverColisionCamara` (L74), `iniciarSandbox` (L101)
-- **Constantes**: `_raycasterCamara` (L28), `_dirCamara` (L29), `_posResueltaCamara` (L30), `_candidatosColisionCamara` (L31), `_objetosIgnoradosCamara` (L32)
+- **Imports**: `./config.js` (L6), `./estado.js` (L7), `./avatar.js` (L14), `./fisicaSandbox.js` (L15), `./nucleoSandbox.js` (L16), `./red.js` (L20), `./audio.js` (L21), `./interfaz.js` (L22), `./experiencias/lobbyCentral.js` (L23)
+- **Exports**: `resolverColisionCamara` [function] (L71)
+- **Funciones**: `recolectarMallasBloqueantes` (L38), `resolverColisionCamara` (L71), `iniciarSandbox` (L98)
+- **Constantes**: `_raycasterCamara` (L25), `_dirCamara` (L26), `_posResueltaCamara` (L27), `_candidatosColisionCamara` (L28), `_objetosIgnoradosCamara` (L29)
 
 ## `js/nucleoSandbox.js`
 
 - **Imports**: `./constantes.js` (L5), `./config.js` (L6), `./estado.js` (L7), `./recursos.js` (L15)
-- **Exports**: `ExperienciaBase` [class] (L69), `RegistroExperiencias` [const] (L396), `actualizarPortalesFisicos` [function] (L477)
+- **Exports**: `ExperienciaBase` [class] (L69), `RegistroExperiencias` [const] (L396), `actualizarPortalesFisicos` [function] (L538)
 - **Clases**: `ExperienciaBase` (L69)
-- **Funciones**: `crearTexturaLetreroPortal` (L30), `actualizarPortalesFisicos` (L477)
+- **Funciones**: `crearTexturaLetreroPortal` (L30), `actualizarPortalesFisicos` (L538)
 - **Constantes**: `RegistroExperiencias` (L396)
 
 ## `js/partituras.js`
 
 - **Imports**: *(ninguno — hoja del DAG)*
-- **Exports**: `notaAFrecuencia` [function] (L22), `MAPA_MUSICA_EXPERIENCIA` [const] (L52), `CATALOGO_PARTITURAS` [const] (L59)
+- **Exports**: `notaAFrecuencia` [function] (L22), `MAPA_MUSICA_EXPERIENCIA` [const] (L52), `CATALOGO_PARTITURAS` [const] (L60)
 - **Funciones**: `notaAFrecuencia` (L22), `unirCompases` (L48)
-- **Constantes**: `SEMITONOS_BASE` (L7), `MAPA_MUSICA_EXPERIENCIA` (L52), `CATALOGO_PARTITURAS` (L59)
+- **Constantes**: `SEMITONOS_BASE` (L7), `MAPA_MUSICA_EXPERIENCIA` (L52), `CATALOGO_PARTITURAS` (L60)
 
 ## `js/recursos.js`
 

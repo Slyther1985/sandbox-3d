@@ -124,6 +124,23 @@ function sanitizarPerfil(datos, apodoFallback = 'Jugador') {
             typeof src.mejorPuntajeTetris === 'number' && Number.isFinite(src.mejorPuntajeTetris) && src.mejorPuntajeTetris >= 0
                 ? Math.floor(src.mejorPuntajeTetris)
                 : 0,
+        favoritosMundos: Array.isArray(src.favoritosMundos)
+            ? Array.from(
+                  new Set(
+                      src.favoritosMundos
+                          .filter((id) => typeof id === 'string' && id.trim().length > 0)
+                          .map((id) => id.trim().slice(0, 32))
+                  )
+              )
+            : [],
+        progresoExperiencias:
+            src.progresoExperiencias && typeof src.progresoExperiencias === 'object' && !Array.isArray(src.progresoExperiencias)
+                ? Object.fromEntries(
+                      Object.entries(src.progresoExperiencias)
+                          .filter(([k, v]) => v && typeof v === 'object' && !Array.isArray(v))
+                          .map(([k, v]) => [String(k).slice(0, 32), { ...v }])
+                  )
+                : {},
         ultimaConexion: typeof src.ultimaConexion === 'number' && Number.isFinite(src.ultimaConexion) ? src.ultimaConexion : Date.now()
     };
 }

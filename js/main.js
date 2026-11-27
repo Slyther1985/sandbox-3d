@@ -21,9 +21,6 @@ import { actualizarRed } from './red.js';
 import { actualizarMusicaAmbiental, seleccionarMusicaExperiencia } from './audio.js';
 import { inicializarInterfaz, actualizarHUD } from './interfaz.js';
 import { LobbyCentral } from './experiencias/lobbyCentral.js';
-import { ZonaConstruccion } from './experiencias/zonaConstruccion.js';
-import { ArenaTurboKarts } from './experiencias/arenaTurboKarts.js';
-import { SalaTetris } from './experiencias/salaTetris.js';
 
 const _raycasterCamara = new THREE.Raycaster();
 const _dirCamara = new THREE.Vector3();
@@ -168,15 +165,25 @@ function iniciarSandbox() {
     };
     RegistroExperiencias.contextoGlobal = contextoSandbox;
 
-    // Registrar experiencias heredadas
+    // Registrar experiencia inicial y cargadores lazy para el resto de salas
     const lobby = new LobbyCentral();
-    const zonaConstruccion = new ZonaConstruccion();
-    const arenaTurboKarts = new ArenaTurboKarts();
-    const salaTetris = new SalaTetris();
     RegistroExperiencias.registrarExperiencia(lobby);
-    RegistroExperiencias.registrarExperiencia(zonaConstruccion);
-    RegistroExperiencias.registrarExperiencia(arenaTurboKarts);
-    RegistroExperiencias.registrarExperiencia(salaTetris);
+    RegistroExperiencias.registrarCargador('construccion', async () => {
+        const { ZonaConstruccion } = await import('./experiencias/zonaConstruccion.js');
+        return new ZonaConstruccion();
+    });
+    RegistroExperiencias.registrarCargador('karts', async () => {
+        const { ArenaTurboKarts } = await import('./experiencias/arenaTurboKarts.js');
+        return new ArenaTurboKarts();
+    });
+    RegistroExperiencias.registrarCargador('tetris', async () => {
+        const { SalaTetris } = await import('./experiencias/salaTetris.js');
+        return new SalaTetris();
+    });
+    RegistroExperiencias.registrarCargador('parkour', async () => {
+        const { ArenaParkour } = await import('./experiencias/arenaParkour.js');
+        return new ArenaParkour();
+    });
     lobby.montar(escena, contextoSandbox);
     seleccionarMusicaExperiencia('lobby');
 

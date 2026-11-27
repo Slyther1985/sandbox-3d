@@ -10,6 +10,9 @@
     <title>Sandbox 3D Multijugador</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%2338bdf8'/%3E%3Cstop offset='100%25' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='%230f172a'/%3E%3Cpolygon points='32,10 52,22 52,44 32,54 12,44 12,22' fill='url(%23g)'/%3E%3Cpolygon points='32,10 52,22 32,32 12,22' fill='%23bae6fd' opacity='0.65'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&family=Rubik:wght@700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/estilos.css" />
 </head>
 <body>
@@ -97,13 +100,22 @@
                         </div>
                     </div>
 
-                    <h3 class="subtitulo-seccion">Viaje Rápido entre Mundos</h3>
-                    <div class="panel-warp-rapido">
-                        <button id="btn-warp-lobby" type="button" class="btn-hud">🎡 Parque Central</button>
-                        <button id="btn-warp-construccion" type="button" class="btn-hud">🧱 Taller Voxel</button>
-                        <button id="btn-warp-karts" type="button" class="btn-hud">🏎️ Turbo Karts GP</button>
-                        <button id="btn-warp-tetris" type="button" class="btn-hud">🕹️ Tetris Arcade</button>
+                    <div class="mundos-cabecera-fila">
+                        <h3 class="subtitulo-seccion">Viaje Rápido entre Mundos</h3>
+                        <span id="contador-mundos" class="contador-mochila">5 / 5</span>
                     </div>
+                    <div class="mundos-barra-controles">
+                        <input id="input-buscar-mundo" type="search" class="input-buscar-mundo" maxlength="28" placeholder="🔍 Buscar sala o juego..." aria-label="Buscar sala o juego" />
+                        <div id="filtros-mundos" class="filtros-mochila" role="tablist" aria-label="Filtrar mundos por categoría">
+                            <button type="button" class="chip-filtro-mochila activo" data-filtro-mundo="todos">Todos</button>
+                            <button type="button" class="chip-filtro-mochila" data-filtro-mundo="favoritos">⭐ Favoritos</button>
+                            <button type="button" class="chip-filtro-mochila" data-filtro-mundo="hub">🎡 Hub</button>
+                            <button type="button" class="chip-filtro-mochila" data-filtro-mundo="creativo">🧱 Creativo</button>
+                            <button type="button" class="chip-filtro-mochila" data-filtro-mundo="carreras">🏎️ Carreras</button>
+                            <button type="button" class="chip-filtro-mochila" data-filtro-mundo="arcade">🕹️ Arcade</button>
+                        </div>
+                    </div>
+                    <div id="lista-warp-mundos" class="panel-warp-rapido" role="list" aria-label="Mundos disponibles"></div>
                     <div class="ayuda-teclas">
                         <span>WASD / Joystick: Mover</span> · <span>Espacio: Saltar</span> · <span>Tab: Menú</span> · <span>E: Interactuar</span>
                     </div>

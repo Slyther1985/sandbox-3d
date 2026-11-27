@@ -44,6 +44,8 @@ export const estadoJugador = {
     },
     mejorVueltaKart: null,
     mejorPuntajeTetris: 0,
+    favoritosMundos: [],
+    progresoExperiencias: {},
     posicion: { x: 0, y: 0, z: 14 },
     rotacion: 0,
     enVehiculo: false,
@@ -146,7 +148,9 @@ export function construirResumenPerfil() {
         construccionGuardada: [...estadoJugador.construccionGuardada],
         configKart: { ...estadoJugador.configKart },
         mejorVueltaKart: estadoJugador.mejorVueltaKart,
-        mejorPuntajeTetris: estadoJugador.mejorPuntajeTetris
+        mejorPuntajeTetris: estadoJugador.mejorPuntajeTetris,
+        favoritosMundos: [...estadoJugador.favoritosMundos],
+        progresoExperiencias: { ...estadoJugador.progresoExperiencias }
     };
 }
 
@@ -251,6 +255,26 @@ export function aplicarDatosPerfil(datos) {
     ) {
         estadoJugador.mejorPuntajeTetris = Math.floor(datos.mejorPuntajeTetris);
     }
+
+    if (Array.isArray(datos.favoritosMundos)) {
+        estadoJugador.favoritosMundos = Array.from(
+            new Set(
+                datos.favoritosMundos
+                    .filter((id) => typeof id === 'string' && id.trim().length > 0)
+                    .map((id) => id.trim().slice(0, 32))
+            )
+        );
+    }
+
+    if (datos.progresoExperiencias && typeof datos.progresoExperiencias === 'object' && !Array.isArray(datos.progresoExperiencias)) {
+        const limpio = {};
+        for (const [k, v] of Object.entries(datos.progresoExperiencias)) {
+            if (v && typeof v === 'object' && !Array.isArray(v)) {
+                limpio[String(k).slice(0, 32)] = { ...v };
+            }
+        }
+        estadoJugador.progresoExperiencias = limpio;
+    }
 }
 
 /**
@@ -316,6 +340,8 @@ export function restablecerPerfilNuevo(apodo) {
     };
     estadoJugador.mejorVueltaKart = null;
     estadoJugador.mejorPuntajeTetris = 0;
+    estadoJugador.favoritosMundos = [];
+    estadoJugador.progresoExperiencias = {};
     guardarEstadoLocal();
     return construirResumenPerfil();
 }

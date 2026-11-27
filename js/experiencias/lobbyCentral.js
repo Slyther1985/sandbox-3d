@@ -4,7 +4,7 @@
  * 3 pabellones temáticos (LEGO Voxel, Turbo Karts GP y Tetris Arcade), Rueda de la Fortuna
  * animada con 12 góndolas, kioscos con toldos rayados, torre parkour y seguimiento en 3ra persona.
  */
-import { DIMENSION_LOBBY, GRAVEDAD_BASE, LIMITE_MUNDO, MITAD_LOBBY } from '../constantes.js';
+import { CATALOGO_MUNDOS, DIMENSION_LOBBY, GRAVEDAD_BASE, LIMITE_MUNDO, MITAD_LOBBY } from '../constantes.js';
 import { CONFIG_CAMARA } from '../config.js';
 import { estadoControles, estadoJugador, notificarEstado } from '../estado.js';
 import {
@@ -400,36 +400,38 @@ export class LobbyCentral extends ExperienciaBase {
      * Construye los 3 pabellones temáticos de atracción y enlaza sus portales físicos 3D.
      */
     _construirPabellonesAtracciones(contextoSandbox) {
-        const portales = [
-            {
-                idDestino: 'construccion',
-                nombre: 'Taller de Bloques',
-                subtitulo: 'Construcción Voxel Creativa',
-                color: 0x22c55e,
-                posicion: { x: -30, y: 0, z: -26 },
-                rotacionY: 0.42
-            },
-            {
-                idDestino: 'karts',
-                nombre: 'Arena Turbo Karts',
-                subtitulo: 'Circuito GP en 8 · Karts 120 pts',
-                color: 0xf97316,
-                posicion: { x: 0, y: 0, z: -34 },
-                rotacionY: 0
-            },
-            {
-                idDestino: 'tetris',
-                nombre: 'Sala Tetris Arcade',
-                subtitulo: 'Cine 8 Butacas · Tetris 10x20',
-                color: 0xa855f7,
-                posicion: { x: 30, y: 0, z: -26 },
-                rotacionY: -0.42
-            }
-        ];
+        const portales = CATALOGO_MUNDOS
+            .filter((mundo) => mundo.id !== 'lobby')
+            .map((mundo) => ({
+                idDestino: mundo.id,
+                nombre: mundo.nombre,
+                subtitulo: (mundo.categoria || 'sala').toUpperCase(),
+                color: mundo.color,
+                posicion: { ...mundo.portal },
+                rotacionY: mundo.portal.rotacionY
+            }));
 
-        this._construirPabellonLego(portales[0].posicion, portales[0].rotacionY);
-        this._construirArcoGrandPrix(portales[1].posicion, portales[1].rotacionY);
-        this._construirPabellonTetrisNeon(portales[2].posicion, portales[2].rotacionY);
+        const portalPorId = (id) => portales.find((p) => p.idDestino === id);
+
+        const portalConstruccion = portalPorId('construccion');
+        if (portalConstruccion) {
+            this._construirPabellonLego(portalConstruccion.posicion, portalConstruccion.rotacionY);
+        }
+
+        const portalKarts = portalPorId('karts');
+        if (portalKarts) {
+            this._construirArcoGrandPrix(portalKarts.posicion, portalKarts.rotacionY);
+        }
+
+        const portalTetris = portalPorId('tetris');
+        if (portalTetris) {
+            this._construirPabellonTetrisNeon(portalTetris.posicion, portalTetris.rotacionY);
+        }
+
+        const portalParkour = portalPorId('parkour');
+        if (portalParkour) {
+            this._construirPabellonParkour(portalParkour.posicion, portalParkour.rotacionY);
+        }
 
         for (const p of portales) {
             this.crearPortalFisico3D({
@@ -440,8 +442,7 @@ export class LobbyCentral extends ExperienciaBase {
                 posicion: p.posicion,
                 rotacionY: p.rotacionY,
                 alEntrar: (ctx) => {
-                    const expRegistrada = RegistroExperiencias.obtenerExperiencia(p.idDestino);
-                    if (expRegistrada) {
+                    if (RegistroExperiencias.tieneExperiencia(p.idDestino)) {
                         RegistroExperiencias.cambiarExperiencia(p.idDestino, ctx || contextoSandbox);
                         return;
                     }
@@ -685,6 +686,81 @@ export class LobbyCentral extends ExperienciaBase {
             const wx = pos.x + Math.cos(rotY) * sx;
             const wz = pos.z - Math.sin(rotY) * sx;
             this.registrarColisionadorCaja(wx - 0.8, 0, wz - 0.8, wx + 0.8, 6.2, wz + 0.8, 'pabellon_tetris_col');
+        }
+    }
+
+    /**
+     * Atracción 4 — Pabellón Arcade Celeste (`TORRE CELESTE`).
+     */
+    _construirPabellonParkour(pos, rotY) {
+        const parkour = new THREE.Group();
+        parkour.position.set(pos.x, pos.y, pos.z);
+        parkour.rotation.y = rotY;
+
+        const matBase = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35, metalness: 0.6 });
+        const matNeon = new THREE.MeshStandardMaterial({
+            color: 0x06b6d4,
+            emissive: 0x06b6d4,
+            emissiveIntensity: 0.85,
+            roughness: 0.2
+        });
+
+        // Plataforma base escalonada
+        const base = new THREE.Mesh(new THREE.BoxGeometry(8.6, 0.7, 6.2), matBase);
+        base.position.set(0, 0.35, 0);
+        base.castShadow = true;
+        base.receiveShadow = true;
+        parkour.add(base);
+
+        // Columnas laterales "nube"
+        for (const sx of [-3.4, 3.4]) {
+            const col = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 5.6, 10), matBase);
+            col.position.set(sx, 3.1, 0);
+            col.castShadow = true;
+            parkour.add(col);
+
+            const nube = new THREE.Mesh(
+                new THREE.SphereGeometry(0.9, 10, 8),
+                new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.6 })
+            );
+            nube.position.set(sx, 6.2, 0);
+            nube.scale.set(1.3, 0.7, 1.1);
+            parkour.add(nube);
+        }
+
+        // Plataformas flotantes decorativas
+        const plataformas = [
+            { x: -2.2, y: 2.1, z: 1.4, color: 0x22d3ee },
+            { x: 1.8, y: 3.4, z: -1.2, color: 0x38bdf8 },
+            { x: -1.4, y: 4.8, z: -2.6, color: 0x818cf8 }
+        ];
+        for (const p of plataformas) {
+            const mesh = new THREE.Mesh(
+                new THREE.BoxGeometry(2.4, 0.4, 2.4),
+                new THREE.MeshStandardMaterial({
+                    map: obtenerTexturaPlataforma(p.color),
+                    roughness: 0.35,
+                    metalness: 0.15
+                })
+            );
+            mesh.position.set(p.x, p.y, p.z);
+            mesh.castShadow = true;
+            parkour.add(mesh);
+        }
+
+        // Trofeo central suspendido
+        const trofeo = new THREE.Mesh(new THREE.OctahedronGeometry(0.7, 0), matNeon);
+        trofeo.position.set(0, 6.0, 0);
+        parkour.add(trofeo);
+
+        this._agregarMarquesinaNeon(parkour, 'TORRE CELESTE', 'PARKOUR ARCADE', '#06b6d4', 7.6, 0.55);
+        this.grupoRaiz.add(parkour);
+
+        // Colisionadores laterales
+        for (const sx of [-3.4, 3.4]) {
+            const wx = pos.x + Math.cos(rotY) * sx;
+            const wz = pos.z - Math.sin(rotY) * sx;
+            this.registrarColisionadorCaja(wx - 0.5, 0, wz - 0.5, wx + 0.5, 6.0, wz + 0.5, 'pabellon_parkour_col');
         }
     }
 
